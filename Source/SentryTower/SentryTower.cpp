@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2024 Sentry. All Rights Reserved.
 
 #include "SentryTower.h"
 #include "Modules/ModuleManager.h"
