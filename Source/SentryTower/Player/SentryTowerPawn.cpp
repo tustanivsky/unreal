@@ -3,6 +3,7 @@
 #include "SentryTowerPawn.h"
 
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
 // Sets default values
@@ -11,7 +12,11 @@ ASentryTowerPawn::ASentryTowerPawn()
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+	Collision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("RootComponent"));
+	Collision->SetCollisionResponseToAllChannels(ECR_Overlap);
+	Collision->SetCapsuleSize(300.0f, 600.0f);
+
+	RootComponent = Collision;
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComponent"));
 	SpringArmComponent->SetupAttachment(RootComponent);
@@ -37,6 +42,20 @@ ASentryTowerPawn::ASentryTowerPawn()
 void ASentryTowerPawn::BeginPlay()
 {
 	Super::BeginPlay();
+
+	Health = MaxHealth;
+}
+
+float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	Health -= Damage;
+
+	if(Health <= 0.0f)
+	{
+		Destroy();
+	}
+
+	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 }
 
 // Called every frame
