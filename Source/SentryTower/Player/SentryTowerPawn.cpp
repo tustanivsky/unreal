@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Sentry. All Rights Reserved.
 
 #include "SentryTowerPawn.h"
+#include "SentryTowerTurret.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -34,8 +35,19 @@ ASentryTowerPawn::ASentryTowerPawn()
 	TowerTop = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TowerTop"));
 	TowerTop->SetupAttachment(TowerMid, FName("TopSocket"));
 
-	Turret = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Turret"));
+	Turret = CreateDefaultSubobject<UChildActorComponent>(TEXT("Turret"));
 	Turret->SetupAttachment(TowerTop, FName("TopSocket"));
+}
+
+void ASentryTowerPawn::RotateTurret(const FVector& Target)
+{
+	auto TurretActor = Cast<ASentryTowerTurret>(Turret->GetChildActor());
+	if (!TurretActor)
+	{
+		return;
+	}
+
+	TurretActor->RotateTurret(Target);
 }
 
 // Called when the game starts or when spawned

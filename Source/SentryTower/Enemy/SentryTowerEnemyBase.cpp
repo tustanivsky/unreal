@@ -49,8 +49,6 @@ void ASentryTowerEnemyBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
-
 	MoveTowardsTarget();
 	RotateTowardsTarget();
 }

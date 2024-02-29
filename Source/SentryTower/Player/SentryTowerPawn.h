@@ -9,6 +9,7 @@
 class UCapsuleComponent;
 class UCameraComponent;
 class USpringArmComponent;
+class ASentryTowerTurret;
 
 /**
  * Tower pawn which fights the enemies
@@ -21,6 +22,9 @@ class SENTRYTOWER_API ASentryTowerPawn : public APawn
 public:
 	// Sets default values for this pawn's properties
 	ASentryTowerPawn();
+
+	UFUNCTION(BlueprintCallable)
+	void RotateTurret(const FVector& RotateTo);
 
 protected:
 	// Called when the game starts or when spawned
@@ -46,7 +50,7 @@ public:
 	TObjectPtr<UStaticMeshComponent> TowerTop;
 
 	UPROPERTY(EditAnywhere)
-	TObjectPtr<UStaticMeshComponent> Turret;
+	TObjectPtr<UChildActorComponent> Turret;
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<USpringArmComponent> SpringArmComponent;
@@ -54,7 +58,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UCameraComponent> CameraComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 100.0f;
 
 private:
