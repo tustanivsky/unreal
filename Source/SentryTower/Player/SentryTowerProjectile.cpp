@@ -59,7 +59,7 @@ void ASentryTowerProjectile::Tick(float DeltaTime)
 
 	if (HasTarget)
 	{
-		FVector NewLocation = Direction * 2000.0f * DeltaTime + GetActorLocation();
+		FVector NewLocation = Direction * 3000.0f * DeltaTime + GetActorLocation();
 		// FVector NewLocation = FMath::VInterpTo(GetActorLocation(), Target, DeltaTime, 10.0f);
 		SetActorLocation(NewLocation);
 	}
