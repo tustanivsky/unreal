@@ -47,6 +47,8 @@ void ASentryTowerPlayerController::SetupInputComponent()
 void ASentryTowerPlayerController::OnShootStarted()
 {
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shoot!"));
+
+	OnShoot.Broadcast();
 }
 
 void ASentryTowerPlayerController::CursorTrace()

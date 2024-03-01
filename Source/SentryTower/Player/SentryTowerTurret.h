@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "SentryTowerTurret.generated.h"
 
+class ASentryTowerProjectile;
+
 UCLASS()
 class SENTRYTOWER_API ASentryTowerTurret : public AActor
 {
@@ -24,11 +26,23 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UStaticMeshComponent> TurretWeapon;
 
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<USceneComponent> ProjectileSocket;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<ASentryTowerProjectile> ProjectileType;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
+	void Shoot();
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+private:
+	FVector TargetLocation;
 };

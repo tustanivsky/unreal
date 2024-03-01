@@ -27,6 +27,8 @@ protected:
 	UFUNCTION()
 	void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -41,9 +43,14 @@ public:
 	TObjectPtr<UFloatingPawnMovement> FloatingPawnMovement;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	float Damage = 10.0f;
+	float EnemyDamage = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float MaxHealth = 10.0f;
 
 private:
 	void MoveTowardsTarget();
 	void RotateTowardsTarget();
+
+	float Health;
 };

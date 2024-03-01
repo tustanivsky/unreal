@@ -11,6 +11,8 @@ class UInputAction;
 
 struct FInputActionValue;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnShootDelegate);
+
 /**
  * Player controller
  */
@@ -43,4 +45,7 @@ public:
 	/** Tower shoot input action (touch) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* ShootTouchAction;
+
+	UPROPERTY()
+	FOnShootDelegate OnShoot;
 };

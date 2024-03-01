@@ -19,6 +19,8 @@ ASentryTowerEnemyBase::ASentryTowerEnemyBase()
 	Body->SetCollisionObjectType(ECC_WorldDynamic);
 	Body->SetCollisionResponseToAllChannels(ECR_Block);
 
+	RootComponent = Body;
+
 	FloatingPawnMovement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("FloatingPawnMovement"));
 	FloatingPawnMovement->bConstrainToPlane = true;
 
@@ -31,6 +33,10 @@ void ASentryTowerEnemyBase::BeginPlay()
 	Super::BeginPlay();
 
 	Body->OnComponentBeginOverlap.AddDynamic(this, &ASentryTowerEnemyBase::OnBeginOverlap);
+
+	Health = MaxHealth;
+
+	MoveTowardsTarget();
 }
 
 void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
@@ -39,9 +45,21 @@ void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedCompon
 	auto Target = Cast<ASentryTowerPawn>(OtherActor);
 	if(Target != nullptr)
 	{
-		UGameplayStatics::ApplyDamage(Target, Damage, GetController(), this, nullptr);
+		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
 		Destroy();
 	}
+}
+
+float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	Health -= Damage;
+
+	if(Health <= 0.0f)
+	{
+		Destroy();
+	}
+
+	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 }
 
 // Called every frame
@@ -49,7 +67,6 @@ void ASentryTowerEnemyBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	MoveTowardsTarget();
 	RotateTowardsTarget();
 }
 
