@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "SentryTower/Player/SentryTowerPawn.h"
+#include "SentryTower/UI/SentryTowerEnemyHealthbar.h"
 
 // Sets default values
 ASentryTowerEnemyBase::ASentryTowerEnemyBase()
@@ -48,7 +49,7 @@ void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedCompon
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	auto Target = Cast<ASentryTowerPawn>(OtherActor);
-	if(Target != nullptr)
+	if (Target != nullptr)
 	{
 		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
 		Destroy();
@@ -59,9 +60,15 @@ float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& Damage
 {
 	Health -= Damage;
 
-	if(Health <= 0.0f)
+	if (Health <= 0.0f)
 	{
 		Destroy();
+	}
+
+	auto HealthbarWidget = Cast<USentryTowerEnemyHealthbar>(Healthbar->GetWidget());
+	if (HealthbarWidget != nullptr)
+	{
+		HealthbarWidget->SetHealthValue(Health, MaxHealth);
 	}
 
 	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);

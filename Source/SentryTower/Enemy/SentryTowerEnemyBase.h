@@ -7,6 +7,7 @@
 #include "SentryTowerEnemyBase.generated.h"
 
 class UWidgetComponent;
+class USentryTowerEnemyHealthbar;
 class UFloatingPawnMovement;
 
 /**
@@ -47,7 +48,7 @@ public:
 	TObjectPtr<UWidgetComponent> Healthbar;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSubclassOf<UUserWidget> HealthbarWidgetClass;
+	TSubclassOf<USentryTowerEnemyHealthbar> HealthbarWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	float EnemyDamage = 1.0f;
