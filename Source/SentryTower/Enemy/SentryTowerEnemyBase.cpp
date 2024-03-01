@@ -3,6 +3,7 @@
 #include "SentryTowerEnemyBase.h"
 
 #include "AIController.h"
+#include "Components/WidgetComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -20,6 +21,10 @@ ASentryTowerEnemyBase::ASentryTowerEnemyBase()
 	Body->SetCollisionResponseToAllChannels(ECR_Block);
 
 	RootComponent = Body;
+
+	Healthbar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Healthbar"));
+	Healthbar->SetWidgetClass(HealthbarWidgetClass);
+	Healthbar->SetupAttachment(RootComponent);
 
 	FloatingPawnMovement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("FloatingPawnMovement"));
 	FloatingPawnMovement->bConstrainToPlane = true;

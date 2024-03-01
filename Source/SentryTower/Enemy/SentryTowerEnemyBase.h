@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "SentryTowerEnemyBase.generated.h"
 
+class UWidgetComponent;
 class UFloatingPawnMovement;
 
 /**
@@ -42,15 +43,22 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UFloatingPawnMovement> FloatingPawnMovement;
 
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UWidgetComponent> Healthbar;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<UUserWidget> HealthbarWidgetClass;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	float EnemyDamage = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 10.0f;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float Health;
+
 private:
 	void MoveTowardsTarget();
 	void RotateTowardsTarget();
-
-	float Health;
 };
