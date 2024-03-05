@@ -30,6 +30,7 @@ protected:
 
 	/** Input handlers. */
 	void OnShootStarted();
+	void OnOpenMenuStarted();
 
 	void CursorTrace();
 
@@ -46,6 +47,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* ShootTouchAction;
 
-	UPROPERTY()
+	/** Open game menu input action (touch) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* OpenMenuAction;
+
+	UPROPERTY(BlueprintAssignable)
 	FOnShootDelegate OnShoot;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnShootDelegate OnOpenMenu;
 };

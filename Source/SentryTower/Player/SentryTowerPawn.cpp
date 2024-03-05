@@ -82,3 +82,15 @@ void ASentryTowerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
+void ASentryTowerPawn::GrantExperience(int32 Exp)
+{
+	CurrentExp += Exp;
+
+	if(CurrentExp >= ExpForNextLevel)
+	{
+		CurrentLevel += 1;
+		ExpForCurrentLevel = ExpForNextLevel;
+		ExpForNextLevel *= 2;
+	}
+}
+

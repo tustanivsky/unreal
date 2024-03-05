@@ -37,4 +37,7 @@ public:
 private:
 	UFUNCTION(BlueprintCallable)
 	void SpawnEnemy();
+
+	UFUNCTION()
+	void OnEnemyDies(int32 ExpBonus);
 };

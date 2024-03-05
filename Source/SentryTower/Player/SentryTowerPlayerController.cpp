@@ -37,6 +37,9 @@ void ASentryTowerPlayerController::SetupInputComponent()
 
 		// Setup touch input events
 		EnhancedInputComponent->BindAction(ShootTouchAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnShootStarted);
+
+		// Setup keyboard events
+		EnhancedInputComponent->BindAction(OpenMenuAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnOpenMenuStarted);
 	}
 	else
 	{
@@ -49,6 +52,13 @@ void ASentryTowerPlayerController::OnShootStarted()
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shoot!"));
 
 	OnShoot.Broadcast();
+}
+
+void ASentryTowerPlayerController::OnOpenMenuStarted()
+{
+	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Open menu!"));
+
+	OnOpenMenu.Broadcast();
 }
 
 void ASentryTowerPlayerController::CursorTrace()

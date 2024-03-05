@@ -62,6 +62,7 @@ float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& Damage
 
 	if (Health <= 0.0f)
 	{
+		OnEnemyDies.Broadcast(ExpBonus);
 		Destroy();
 	}
 

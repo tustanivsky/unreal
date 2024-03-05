@@ -39,6 +39,8 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void GrantExperience(int32 Exp);
+
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UCapsuleComponent> Collision;
 
@@ -61,6 +63,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 100.0f;
 
-private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Health;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 CurrentLevel = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 CurrentExp;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 ExpForCurrentLevel = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 ExpForNextLevel = 100;
 };

@@ -10,6 +10,8 @@ class UWidgetComponent;
 class USentryTowerEnemyHealthbar;
 class UFloatingPawnMovement;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEnemyDiesDelegate, int, ExpBonus);
+
 /**
  * Enemy pawn which attacks the tower
  */
@@ -56,8 +58,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 10.0f;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Health;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 ExpBonus = 10;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnEnemyDiesDelegate OnEnemyDies;
 
 private:
 	void MoveTowardsTarget();

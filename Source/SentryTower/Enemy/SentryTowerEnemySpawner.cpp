@@ -3,6 +3,10 @@
 #include "SentryTowerEnemySpawner.h"
 #include "SentryTowerEnemyBase.h"
 
+#include "SentryTower/Player/SentryTowerPawn.h"
+
+#include "Kismet/GameplayStatics.h"
+
 // Sets default values
 ASentryTowerEnemySpawner::ASentryTowerEnemySpawner()
 {
@@ -46,27 +50,36 @@ void ASentryTowerEnemySpawner::SpawnEnemy()
 		return;
 	}
 
-	// Get enemy spawner location and rotation
 	FVector SpawnerLocation = GetActorLocation();
 	FRotator SpawnerRotation = GetActorRotation();
 
-	// Get a random spawn direction
 	float Angle = FMath::RandRange(0.0f, 2.0f * PI);
 	FVector SpawnDirection = SpawnerRotation.RotateVector(FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f));
 
-	// Calculate spawn location at given distance in the random direction
 	FVector SpawnLocation = SpawnerLocation + SpawnDirection * SpawnDistance;
 
-	// Calculate the direction from the enemy to the spawner
 	FVector LookAtDirection = SpawnerLocation - SpawnLocation;
 
-	// Set the enemy's rotation to face the spawner
 	FRotator EnemyRotation = LookAtDirection.Rotation();
 
-	auto SpawnedEnemy = World->SpawnActor(EnemyType, &SpawnLocation, &EnemyRotation);
+	ASentryTowerEnemyBase* SpawnedEnemy = Cast<ASentryTowerEnemyBase>(World->SpawnActor(EnemyType, &SpawnLocation, &EnemyRotation));
 	if (!SpawnedEnemy)
 	{
 		UE_LOG(LogTemp, Error, TEXT("ASentryTowerEnemySpawner: Failed to spawn enemy!"));
 	}
+
+	SpawnedEnemy->OnEnemyDies.AddDynamic(this, &ASentryTowerEnemySpawner::OnEnemyDies);
+}
+
+void ASentryTowerEnemySpawner::OnEnemyDies(int32 ExpBonus)
+{
+	auto TowerPawn = Cast<ASentryTowerPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (!TowerPawn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerEnemySpawner: Can't get tower pawn!"));
+		return;
+	}
+
+	TowerPawn->GrantExperience(ExpBonus);
 }
 
