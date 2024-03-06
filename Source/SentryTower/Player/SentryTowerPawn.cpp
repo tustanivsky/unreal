@@ -56,6 +56,8 @@ void ASentryTowerPawn::BeginPlay()
 	Super::BeginPlay();
 
 	Health = MaxHealth;
+
+	ExpForNextLevel = 100.0f;
 }
 
 float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -91,7 +93,9 @@ void ASentryTowerPawn::GrantExperience(int32 Exp)
 	{
 		CurrentLevel += 1;
 		ExpForCurrentLevel = ExpForNextLevel;
-		ExpForNextLevel *= 2;
+		ExpForNextLevel = 100.0f * CurrentLevel + CurrentExp;
+
+		OnTowerLevelUp.Broadcast();
 	}
 }
 

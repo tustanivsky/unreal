@@ -12,6 +12,7 @@ class USpringArmComponent;
 class ASentryTowerTurret;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerDiesDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerLevelUpDelegate);
 
 /**
  * Tower pawn which fights the enemies
@@ -82,4 +83,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnTowerDiesDelegate OnTowerDies;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerDiesDelegate OnTowerLevelUp;
 };
