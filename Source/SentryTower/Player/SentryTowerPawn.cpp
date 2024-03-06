@@ -64,6 +64,7 @@ float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 
 	if(Health <= 0.0f)
 	{
+		OnTowerDies.Broadcast();
 		Destroy();
 	}
 

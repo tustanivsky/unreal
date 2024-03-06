@@ -66,6 +66,7 @@ void ASentryTowerEnemySpawner::SpawnEnemy()
 	if (!SpawnedEnemy)
 	{
 		UE_LOG(LogTemp, Error, TEXT("ASentryTowerEnemySpawner: Failed to spawn enemy!"));
+		return;
 	}
 
 	SpawnedEnemy->OnEnemyDies.AddDynamic(this, &ASentryTowerEnemySpawner::OnEnemyDies);
