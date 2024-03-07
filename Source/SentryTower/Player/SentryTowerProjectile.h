@@ -22,11 +22,17 @@ public:
 	UFUNCTION()
 	void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void ApplySpecialEffect(AActor* OtherActor);
+
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UStaticMeshComponent> Body;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Damage = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float Radius = 0.0f;
 
 protected:
 	// Called when the game starts or when spawned

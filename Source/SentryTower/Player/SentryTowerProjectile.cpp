@@ -38,7 +38,16 @@ void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedCompo
 	auto EnemyTarget = Cast<ASentryTowerEnemyBase>(OtherActor);
 	if(EnemyTarget != nullptr)
 	{
-		UGameplayStatics::ApplyDamage(EnemyTarget, Damage, PlayerController, this, nullptr);
+		ApplySpecialEffect(OtherActor);
+
+		if (Radius > 0.0f)
+		{
+			UGameplayStatics::ApplyRadialDamage(this, Damage, GetActorLocation(), Radius, nullptr, { PlayerController->GetPawn() }, this);
+		}
+		else
+		{
+			UGameplayStatics::ApplyDamage(EnemyTarget, Damage, PlayerController, this, nullptr);
+		}
 	}
 
 	Destroy();

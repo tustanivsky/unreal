@@ -10,6 +10,7 @@ class UCapsuleComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class ASentryTowerTurret;
+class ASentryTowerProjectile;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerDiesDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerLevelUpDelegate);
@@ -28,6 +29,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RotateTurret(const FVector& RotateTo);
+
+	UFUNCTION(BlueprintCallable)
+	void SetProjectileType(TSubclassOf<ASentryTowerProjectile> ProjectileType);
 
 protected:
 	// Called when the game starts or when spawned

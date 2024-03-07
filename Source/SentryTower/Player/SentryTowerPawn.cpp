@@ -2,6 +2,7 @@
 
 #include "SentryTowerPawn.h"
 #include "SentryTowerTurret.h"
+#include "SentryTowerProjectile.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -48,6 +49,17 @@ void ASentryTowerPawn::RotateTurret(const FVector& Target)
 	}
 
 	TurretActor->RotateTurret(Target);
+}
+
+void ASentryTowerPawn::SetProjectileType(TSubclassOf<ASentryTowerProjectile> ProjectileType)
+{
+	auto TurretActor = Cast<ASentryTowerTurret>(Turret->GetChildActor());
+	if (!TurretActor)
+	{
+		return;
+	}
+
+	TurretActor->ProjectileType = ProjectileType;
 }
 
 // Called when the game starts or when spawned

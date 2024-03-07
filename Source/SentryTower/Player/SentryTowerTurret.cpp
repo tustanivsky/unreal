@@ -63,11 +63,6 @@ void ASentryTowerTurret::Shoot()
 	FRotator SpawnRotation = TurretWeapon->GetComponentRotation();
 
 	auto Projectile = GetWorld()->SpawnActor(ProjectileType, &SpawnLocation, &SpawnRotation);
-	if (!Projectile)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ASentryTowerTurret: Failed to spawn projectile!"));
-		return;
-	}
 
 	Cast<ASentryTowerProjectile>(Projectile)->Init(TargetLocation);
 }
