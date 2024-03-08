@@ -28,6 +28,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UStaticMeshComponent> Body;
 
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UParticleSystem> ParticleEffect;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Damage = 10.0f;
 

@@ -1,6 +1,8 @@
 // Copyright (c) 2024 Sentry. All Rights Reserved.
 
 #include "SentryTowerProjectile.h"
+
+#include "SentryTowerPawn.h"
 #include "SentryTowerPlayerController.h"
 #include "Components/SphereComponent.h"
 
@@ -35,20 +37,30 @@ void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedCompo
 		return;
 	}
 
-	auto EnemyTarget = Cast<ASentryTowerEnemyBase>(OtherActor);
-	if(EnemyTarget != nullptr)
+	auto TowerPawn = Cast<ASentryTowerPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (!TowerPawn)
 	{
-		ApplySpecialEffect(OtherActor);
+		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerProjectile: Can't get tower pawn!"));
+		return;
+	}
 
-		if (Radius > 0.0f)
+	float ResultingDamage = Damage + 0.1f * Damage * (TowerPawn->CurrentLevel - 1);
+
+	if (Radius > 0.0f)
+	{
+		UGameplayStatics::ApplyRadialDamage(this, ResultingDamage, GetActorLocation(), Radius, nullptr, { TowerPawn }, this);
+	}
+	else
+	{
+		auto EnemyTarget = Cast<ASentryTowerEnemyBase>(OtherActor);
+		if(EnemyTarget != nullptr)
 		{
-			UGameplayStatics::ApplyRadialDamage(this, Damage, GetActorLocation(), Radius, nullptr, { PlayerController->GetPawn() }, this);
-		}
-		else
-		{
-			UGameplayStatics::ApplyDamage(EnemyTarget, Damage, PlayerController, this, nullptr);
+			ApplySpecialEffect(OtherActor);
+			UGameplayStatics::ApplyDamage(EnemyTarget, ResultingDamage, PlayerController, this, nullptr);
 		}
 	}
+
+	UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
 
 	Destroy();
 }

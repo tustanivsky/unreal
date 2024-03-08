@@ -52,8 +52,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<USentryTowerEnemyHealthbar> HealthbarWidgetClass;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	float EnemyDamage = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float EnemyDamage = 5.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 10.0f;
