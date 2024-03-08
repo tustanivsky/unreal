@@ -48,7 +48,7 @@ void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedCompo
 
 	if (Radius > 0.0f)
 	{
-		UGameplayStatics::ApplyRadialDamage(this, ResultingDamage, GetActorLocation(), Radius, nullptr, { TowerPawn }, this);
+		UGameplayStatics::ApplyRadialDamage(GetWorld(), ResultingDamage, GetActorLocation(), Radius, nullptr, { this, TowerPawn }, this);
 	}
 	else
 	{
