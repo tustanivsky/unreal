@@ -56,4 +56,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnShootDelegate OnOpenMenu;
+
+private:
+	bool AllowShooting;
 };

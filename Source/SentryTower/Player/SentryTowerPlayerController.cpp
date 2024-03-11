@@ -51,7 +51,10 @@ void ASentryTowerPlayerController::OnShootStarted()
 {
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shoot!"));
 
-	OnShoot.Broadcast();
+	if (AllowShooting)
+	{
+		OnShoot.Broadcast();
+	}
 }
 
 void ASentryTowerPlayerController::OnOpenMenuStarted()
@@ -72,6 +75,8 @@ void ASentryTowerPlayerController::CursorTrace()
 
 	FHitResult CursorHit;
 	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+
+	AllowShooting = CursorHit.GetActor() != TowerPawn;
 
 	TowerPawn->RotateTurret(CursorHit.Location);
 }
