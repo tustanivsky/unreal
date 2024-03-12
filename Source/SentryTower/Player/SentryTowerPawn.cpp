@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 ASentryTowerPawn::ASentryTowerPawn()
@@ -79,8 +80,9 @@ float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	if(Health <= 0.0f)
 	{
 		OnTowerDies.Broadcast();
-		//Destroy();
 	}
+
+	UGameplayStatics::PlayWorldCameraShake(this, CameraShake, GetActorLocation(), 0.0f, 3000.0f);
 
 	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 }

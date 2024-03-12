@@ -8,6 +8,7 @@
 
 class UCapsuleComponent;
 class UCameraComponent;
+class UCameraShakeBase;
 class USpringArmComponent;
 class ASentryTowerTurret;
 class ASentryTowerProjectile;
@@ -66,6 +67,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UCameraComponent> CameraComponent;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UCameraShakeBase> CameraShake;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float MaxHealth = 100.0f;
