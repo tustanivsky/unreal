@@ -27,8 +27,6 @@ ASentryTowerTurret::ASentryTowerTurret()
 
 void ASentryTowerTurret::RotateTurret(const FVector& Target)
 {
-	TargetLocation = Target;
-
 	// Get the direction vector from actor to hit location
 	FVector Direction = Target - GetActorLocation();
 
@@ -57,14 +55,14 @@ void ASentryTowerTurret::BeginPlay()
 	PlayerController->OnShoot.AddDynamic(this, &ASentryTowerTurret::Shoot);
 }
 
-void ASentryTowerTurret::Shoot()
+void ASentryTowerTurret::Shoot(AActor* TargetActor, const FVector& TargetLocation)
 {
 	FVector SpawnLocation = ProjectileSocket->GetComponentLocation();
 	FRotator SpawnRotation = TurretWeapon->GetComponentRotation();
 
 	auto Projectile = GetWorld()->SpawnActor(ProjectileType, &SpawnLocation, &SpawnRotation);
 
-	Cast<ASentryTowerProjectile>(Projectile)->Init(TargetLocation);
+	Cast<ASentryTowerProjectile>(Projectile)->Init(TargetActor, TargetLocation);
 }
 
 // Called every frame

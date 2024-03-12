@@ -6,6 +6,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "SentryTowerPawn.h"
+#include "SentryTowerTurret.h"
+#include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 
 void ASentryTowerPlayerController::BeginPlay()
 {
@@ -53,7 +55,10 @@ void ASentryTowerPlayerController::OnShootStarted()
 
 	if (AllowShooting)
 	{
-		OnShoot.Broadcast();
+		FHitResult CursorHit;
+		GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+
+		OnShoot.Broadcast(Cast<ASentryTowerEnemyBase>(CursorHit.GetActor()), CursorHit.Location);
 	}
 }
 
@@ -76,7 +81,7 @@ void ASentryTowerPlayerController::CursorTrace()
 	FHitResult CursorHit;
 	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
 
-	AllowShooting = CursorHit.GetActor() != TowerPawn;
+	AllowShooting = !Cast<ASentryTowerPawn>(CursorHit.GetActor()) && !Cast<ASentryTowerTurret>(CursorHit.GetActor());
 
 	TowerPawn->RotateTurret(CursorHit.Location);
 }

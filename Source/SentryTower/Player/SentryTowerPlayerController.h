@@ -11,7 +11,8 @@ class UInputAction;
 
 struct FInputActionValue;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnShootDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnShootDelegate, AActor*, TargetActor, const FVector&, TargetLocation);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnOpenMenuDelegate);
 
 /**
  * Player controller
@@ -55,7 +56,7 @@ public:
 	FOnShootDelegate OnShoot;
 
 	UPROPERTY(BlueprintAssignable)
-	FOnShootDelegate OnOpenMenu;
+	FOnOpenMenuDelegate OnOpenMenu;
 
 private:
 	bool AllowShooting;

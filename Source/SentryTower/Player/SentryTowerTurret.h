@@ -37,12 +37,9 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void Shoot();
+	void Shoot(AActor* TargetActor, const FVector& TargetLocation);
 
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-private:
-	FVector TargetLocation;
 };

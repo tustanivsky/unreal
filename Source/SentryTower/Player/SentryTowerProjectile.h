@@ -17,10 +17,13 @@ public:
 	// Sets default values for this actor's properties
 	ASentryTowerProjectile();
 
-	void Init(const FVector& TargetLocation);
+	void Init(AActor* TargetActor, const FVector& TargetLocation);
 
 	UFUNCTION()
 	void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnTargetDestroyed(AActor* DestroyedEnemy);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void ApplySpecialEffect(AActor* OtherActor);
@@ -46,7 +49,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	FVector Target;
+	UPROPERTY()
+	AActor* TargetToFollow;
+	FVector TargetStationary;
 	FVector Direction;
-	bool HasTarget = false;
 };

@@ -20,11 +20,19 @@ ASentryTowerProjectile::ASentryTowerProjectile()
 	RootComponent = Body;
 }
 
-void ASentryTowerProjectile::Init(const FVector& TargetLocation)
+void ASentryTowerProjectile::Init(AActor* TargetActor, const FVector& TargetLocation)
 {
-	Target = TargetLocation;
+	TargetToFollow = TargetActor;
+	if (TargetToFollow != nullptr)
+	{
+		TargetToFollow->OnDestroyed.AddDynamic(this, &ASentryTowerProjectile::OnTargetDestroyed);
+	}
+
+	TargetStationary = TargetLocation;
+
 	Direction = (TargetLocation - GetActorLocation()).GetSafeNormal();
-	HasTarget = true;
+
+	SetActorTickEnabled(true);
 }
 
 void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
@@ -65,10 +73,17 @@ void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedCompo
 	Destroy();
 }
 
+void ASentryTowerProjectile::OnTargetDestroyed(AActor* DestroyedEnemy)
+{
+	Direction = (DestroyedEnemy->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	TargetToFollow = nullptr;
+}
+
 // Called when the game starts or when spawned
 void ASentryTowerProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+	SetActorTickEnabled(false);
 
 	Body->OnComponentBeginOverlap.AddDynamic(this, &ASentryTowerProjectile::OnBeginOverlap);
 }
@@ -78,10 +93,15 @@ void ASentryTowerProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (HasTarget)
+	if (TargetToFollow != nullptr)
+	{
+		FVector EnemyDirection = (TargetToFollow->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		FVector NewLocation = EnemyDirection * 3000.0f * DeltaTime + GetActorLocation();
+		SetActorLocation(NewLocation);
+	}
+	else
 	{
 		FVector NewLocation = Direction * 3000.0f * DeltaTime + GetActorLocation();
-		// FVector NewLocation = FMath::VInterpTo(GetActorLocation(), Target, DeltaTime, 10.0f);
 		SetActorLocation(NewLocation);
 	}
 }
