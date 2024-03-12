@@ -52,6 +52,7 @@ void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedCompon
 	if (Target != nullptr)
 	{
 		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
+		UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
 		Destroy();
 	}
 }

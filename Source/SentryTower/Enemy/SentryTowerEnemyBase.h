@@ -52,6 +52,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<USentryTowerEnemyHealthbar> HealthbarWidgetClass;
 
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UParticleSystem> ParticleEffect;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float EnemyDamage = 5.0f;
 
