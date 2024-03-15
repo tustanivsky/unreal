@@ -9,6 +9,7 @@
 class UCapsuleComponent;
 class UCameraComponent;
 class UCameraShakeBase;
+class USoundBase;
 class USpringArmComponent;
 class ASentryTowerTurret;
 class ASentryTowerProjectile;
@@ -67,6 +68,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UCameraComponent> CameraComponent;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<USoundBase> DamageSound;
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCameraShakeBase> CameraShake;

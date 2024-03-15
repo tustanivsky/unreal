@@ -7,6 +7,7 @@
 #include "SentryTowerTurret.generated.h"
 
 class ASentryTowerProjectile;
+class USoundBase;
 
 UCLASS()
 class SENTRYTOWER_API ASentryTowerTurret : public AActor
@@ -28,6 +29,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<USceneComponent> ProjectileSocket;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<USoundBase> ShootSound;
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<ASentryTowerProjectile> ProjectileType;

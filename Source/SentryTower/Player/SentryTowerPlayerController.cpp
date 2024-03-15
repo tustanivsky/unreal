@@ -31,7 +31,6 @@ void ASentryTowerPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
 		// Setup mouse input events
@@ -81,6 +80,7 @@ void ASentryTowerPlayerController::CursorTrace()
 	FHitResult CursorHit;
 	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
 
+	// check if tower isn't aiming at itself
 	AllowShooting = !Cast<ASentryTowerPawn>(CursorHit.GetActor()) && !Cast<ASentryTowerTurret>(CursorHit.GetActor());
 
 	TowerPawn->RotateTurret(CursorHit.Location);

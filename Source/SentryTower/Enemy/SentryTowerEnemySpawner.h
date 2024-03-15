@@ -31,6 +31,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	float SpawnFrequency = 1.0f;
 
+	/** Types of enemies that can be spawned */
 	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<ASentryTowerEnemyBase>> EnemyTypes;
 

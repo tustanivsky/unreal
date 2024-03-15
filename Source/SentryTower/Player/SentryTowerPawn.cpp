@@ -1,18 +1,17 @@
 // Copyright (c) 2024 Sentry. All Rights Reserved.
 
 #include "SentryTowerPawn.h"
-#include "SentryTowerTurret.h"
 #include "SentryTowerProjectile.h"
+#include "SentryTowerTurret.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
-// Sets default values
 ASentryTowerPawn::ASentryTowerPawn()
 {
-	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	Collision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("RootComponent"));
@@ -63,14 +62,11 @@ void ASentryTowerPawn::SetProjectileType(TSubclassOf<ASentryTowerProjectile> Pro
 	TurretActor->ProjectileType = ProjectileType;
 }
 
-// Called when the game starts or when spawned
 void ASentryTowerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
 	Health = MaxHealth;
-
-	ExpForNextLevel = 100.0f;
 }
 
 float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -83,17 +79,16 @@ float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	}
 
 	UGameplayStatics::PlayWorldCameraShake(this, CameraShake, GetActorLocation(), 0.0f, 3000.0f);
+	UGameplayStatics::PlaySound2D(GetWorld(), DamageSound);
 
 	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 }
 
-// Called every frame
 void ASentryTowerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
-// Called to bind functionality to input
 void ASentryTowerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);

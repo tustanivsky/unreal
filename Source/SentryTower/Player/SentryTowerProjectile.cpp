@@ -5,14 +5,11 @@
 #include "SentryTowerPawn.h"
 #include "SentryTowerPlayerController.h"
 #include "Components/SphereComponent.h"
-
 #include "Kismet/GameplayStatics.h"
 #include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 
-// Sets default values
 ASentryTowerProjectile::ASentryTowerProjectile()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
@@ -22,6 +19,10 @@ ASentryTowerProjectile::ASentryTowerProjectile()
 
 void ASentryTowerProjectile::Init(AActor* TargetActor, const FVector& TargetLocation)
 {
+	// Projectile follows the `TargetActor` enemy while it's moving if one was under cursor on shooting event
+	// If `TargetActor` enemy dies before projectile reached it then the movement continues in last know direction
+	// If there was no `TargetActor` enemy specified then the projectile simply moves to a `TargetLocation` point on the ground
+
 	TargetToFollow = TargetActor;
 	if (TargetToFollow != nullptr)
 	{
@@ -52,6 +53,7 @@ void ASentryTowerProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedCompo
 		return;
 	}
 
+	// apply tower level bonus to actual damage which's dealt to target
 	float ResultingDamage = Damage + 0.1f * Damage * (TowerPawn->CurrentLevel - 1);
 
 	if (Radius > 0.0f)
@@ -79,7 +81,6 @@ void ASentryTowerProjectile::OnTargetDestroyed(AActor* DestroyedEnemy)
 	TargetToFollow = nullptr;
 }
 
-// Called when the game starts or when spawned
 void ASentryTowerProjectile::BeginPlay()
 {
 	Super::BeginPlay();
@@ -88,7 +89,6 @@ void ASentryTowerProjectile::BeginPlay()
 	Body->OnComponentBeginOverlap.AddDynamic(this, &ASentryTowerProjectile::OnBeginOverlap);
 }
 
-// Called every frame
 void ASentryTowerProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -96,12 +96,12 @@ void ASentryTowerProjectile::Tick(float DeltaTime)
 	if (TargetToFollow != nullptr)
 	{
 		FVector EnemyDirection = (TargetToFollow->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-		FVector NewLocation = EnemyDirection * 3000.0f * DeltaTime + GetActorLocation();
+		FVector NewLocation = EnemyDirection * Speed * DeltaTime + GetActorLocation();
 		SetActorLocation(NewLocation);
 	}
 	else
 	{
-		FVector NewLocation = Direction * 3000.0f * DeltaTime + GetActorLocation();
+		FVector NewLocation = Direction * Speed * DeltaTime + GetActorLocation();
 		SetActorLocation(NewLocation);
 	}
 }

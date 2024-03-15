@@ -9,11 +9,10 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "SentryTower/Player/SentryTowerPawn.h"
 #include "SentryTower/UI/SentryTowerEnemyHealthbar.h"
+#include "Sound/SoundBase.h"
 
-// Sets default values
 ASentryTowerEnemyBase::ASentryTowerEnemyBase()
 {
-	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
@@ -33,7 +32,6 @@ ASentryTowerEnemyBase::ASentryTowerEnemyBase()
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 
-// Called when the game starts or when spawned
 void ASentryTowerEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
@@ -45,18 +43,6 @@ void ASentryTowerEnemyBase::BeginPlay()
 	MoveTowardsTarget();
 }
 
-void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	auto Target = Cast<ASentryTowerPawn>(OtherActor);
-	if (Target != nullptr)
-	{
-		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
-		UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
-		Destroy();
-	}
-}
-
 float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	Health -= Damage;
@@ -64,6 +50,8 @@ float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& Damage
 	if (Health <= 0.0f)
 	{
 		OnEnemyDies.Broadcast(ExpBonus);
+		UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
+		UGameplayStatics::PlaySound2D(GetWorld(), ExplosionSound);
 		Destroy();
 	}
 
@@ -76,7 +64,19 @@ float ASentryTowerEnemyBase::TakeDamage(float Damage, const FDamageEvent& Damage
 	return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 }
 
-// Called every frame
+void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	auto Target = Cast<ASentryTowerPawn>(OtherActor);
+	if (Target != nullptr)
+	{
+		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
+		UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
+		UGameplayStatics::PlaySound2D(GetWorld(), ExplosionSound);
+		Destroy();
+	}
+}
+
 void ASentryTowerEnemyBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -84,7 +84,6 @@ void ASentryTowerEnemyBase::Tick(float DeltaTime)
 	RotateTowardsTarget();
 }
 
-// Called to bind functionality to input
 void ASentryTowerEnemyBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);

@@ -1,30 +1,24 @@
 // Copyright (c) 2024 Sentry. All Rights Reserved.
 
 #include "SentryTowerEnemySpawner.h"
-#include "SentryTowerEnemyBase.h"
 
+#include "SentryTowerEnemyBase.h"
+#include "Kismet/GameplayStatics.h"
 #include "SentryTower/Player/SentryTowerPawn.h"
 
-#include "Kismet/GameplayStatics.h"
-
-// Sets default values
 ASentryTowerEnemySpawner::ASentryTowerEnemySpawner()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-// Called when the game starts or when spawned
 void ASentryTowerEnemySpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Create a timer and start spawning enemies
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &ASentryTowerEnemySpawner::SpawnEnemy, SpawnFrequency, true);
 }
 
-// Called every frame
 void ASentryTowerEnemySpawner::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -38,11 +32,9 @@ void ASentryTowerEnemySpawner::SpawnEnemy()
 		return;
 	}
 
-	// Choose a random enemy type
 	int32 RandomIndex = FMath::RandRange(0, EnemyTypes.Num() - 1);
 	TSubclassOf<ASentryTowerEnemyBase> EnemyType = EnemyTypes[RandomIndex];
 
-	// Get the world and check for validity
 	UWorld* World = GetWorld();
 	if (!World)
 	{
