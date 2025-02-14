@@ -22,7 +22,25 @@ USentrySpan* USentryTransaction::StartChild(const FString& Operation, const FStr
 	if (!SentryTransactionNativeImpl || SentryTransactionNativeImpl->IsFinished())
 		return nullptr;
 
-	return SentryTransactionNativeImpl->StartChild(Operation, Description);
+	TSharedPtr<ISentrySpan> spanNativeImpl = SentryTransactionNativeImpl->StartChild(Operation, Description);
+
+	USentrySpan* unrealSpan = NewObject<USentrySpan>();
+	unrealSpan->InitWithNativeImpl(spanNativeImpl);
+
+	return unrealSpan;
+}
+
+USentrySpan* USentryTransaction::StartChildWithTimestamp(const FString& Operation, const FString& Description, int64 Timestamp)
+{
+	if (!SentryTransactionNativeImpl || SentryTransactionNativeImpl->IsFinished())
+		return nullptr;
+
+	TSharedPtr<ISentrySpan> spanNativeImpl = SentryTransactionNativeImpl->StartChildWithTimestamp(Operation, Description, Timestamp);
+
+	USentrySpan* unrealSpan = NewObject<USentrySpan>();
+	unrealSpan->InitWithNativeImpl(spanNativeImpl);
+
+	return unrealSpan;
 }
 
 void USentryTransaction::Finish()
@@ -31,6 +49,14 @@ void USentryTransaction::Finish()
 		return;
 
 	SentryTransactionNativeImpl->Finish();
+}
+
+void USentryTransaction::FinishWithTimestamp(int64 Timestamp)
+{
+	if (!SentryTransactionNativeImpl || SentryTransactionNativeImpl->IsFinished())
+		return;
+
+	SentryTransactionNativeImpl->FinishWithTimestamp(Timestamp);
 }
 
 bool USentryTransaction::IsFinished() const
@@ -79,6 +105,14 @@ void USentryTransaction::RemoveData(const FString& key)
 		return;
 
 	SentryTransactionNativeImpl->RemoveData(key);
+}
+
+void USentryTransaction::GetTrace(FString& name, FString& value)
+{
+	if (!SentryTransactionNativeImpl || SentryTransactionNativeImpl->IsFinished())
+		return;
+
+	SentryTransactionNativeImpl->GetTrace(name, value);
 }
 
 void USentryTransaction::InitWithNativeImpl(TSharedPtr<ISentryTransaction> transactionImpl)

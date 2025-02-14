@@ -2,18 +2,11 @@
 
 #include "SentryConvertorsApple.h"
 
-#include "SentryScope.h"
-#include "SentryId.h"
-#include "SentryTransaction.h"
-#include "SentrySpan.h"
 #include "SentryDefines.h"
-#include "SentryTransactionContext.h"
 
-#include "Apple/SentryTransactionContextApple.h"
 #include "Apple/SentryScopeApple.h"
-#include "Apple/SentryIdApple.h"
-#include "Apple/SentryTransactionApple.h"
-#include "Apple/SentrySpanApple.h"
+
+#include "Convenience/SentryMacro.h"
 
 SentryLevel SentryConvertorsApple::SentryLevelToNative(ESentryLevel level)
 {
@@ -70,6 +63,24 @@ NSArray* SentryConvertorsApple::StringArrayToNative(const TArray<FString>& array
 NSData* SentryConvertorsApple::ByteDataToNative(const TArray<uint8>& array)
 {
 	return [NSData dataWithBytes:array.GetData() length:array.Num()];
+}
+
+SentryStacktrace* SentryConvertorsApple::CallstackToNative(const TArray<FProgramCounterSymbolInfo>& callstack)
+{
+	int32 framesCount = callstack.Num();
+
+	NSMutableArray *arr = [NSMutableArray arrayWithCapacity:framesCount];
+
+	for (int i = 0; i < framesCount; ++i)
+	{
+		SentryFrame *frame = [[SENTRY_APPLE_CLASS(SentryFrame) alloc] init];
+		frame.instructionAddress = FString::Printf(TEXT("0x%llx"), callstack[framesCount - i - 1].ProgramCounter).GetNSString();
+		[arr addObject:frame];
+	}
+
+	SentryStacktrace *trace = [[SENTRY_APPLE_CLASS(SentryStacktrace) alloc] initWithFrames:arr registers:@{}];
+
+	return trace;
 }
 
 ESentryLevel SentryConvertorsApple::SentryLevelToUnreal(SentryLevel level)
@@ -136,46 +147,6 @@ TArray<uint8> SentryConvertorsApple::ByteDataToUnreal(NSData* data)
 	}
 
 	return ByteData;
-}
-
-USentryScope* SentryConvertorsApple::SentryScopeToUnreal(SentryScope* scope)
-{
-	TSharedPtr<SentryScopeApple> scopeNativeImpl = MakeShareable(new SentryScopeApple(scope));
-	USentryScope* unrealScope = NewObject<USentryScope>();
-	unrealScope->InitWithNativeImpl(scopeNativeImpl);
-	return unrealScope;
-}
-
-USentryId* SentryConvertorsApple::SentryIdToUnreal(SentryId* id)
-{
-	TSharedPtr<SentryIdApple> idNativeImpl = MakeShareable(new SentryIdApple(id));
-	USentryId* unrealId = NewObject<USentryId>();
-	unrealId->InitWithNativeImpl(idNativeImpl);
-	return unrealId;
-}
-
-USentryTransaction* SentryConvertorsApple::SentryTransactionToUnreal(id<SentrySpan> transaction)
-{
-	TSharedPtr<SentryTransactionApple> transactionNativeImpl = MakeShareable(new SentryTransactionApple(transaction));
-	USentryTransaction* unrealTransaction = NewObject<USentryTransaction>();
-	unrealTransaction->InitWithNativeImpl(transactionNativeImpl);
-	return unrealTransaction;
-}
-
-USentrySpan* SentryConvertorsApple::SentrySpanToUnreal(id<SentrySpan> span)
-{
-	TSharedPtr<SentrySpanApple> spanNativeImpl = MakeShareable(new SentrySpanApple(span));
-	USentrySpan* unrealSpan = NewObject<USentrySpan>();
-	unrealSpan->InitWithNativeImpl(spanNativeImpl);
-	return unrealSpan;
-}
-
-USentryTransactionContext* SentryConvertorsApple::SentryTransactionContextToUnreal(SentryTransactionContext* transactionContext)
-{
-	TSharedPtr<SentryTransactionContextApple> transactionContextNativeImpl = MakeShareable(new SentryTransactionContextApple(transactionContext));
-	USentryTransactionContext* unrealTransactionContext = NewObject<USentryTransactionContext>();
-	unrealTransactionContext->InitWithNativeImpl(transactionContextNativeImpl);
-	return unrealTransactionContext;
 }
 
 SentryLevel SentryConvertorsApple::StringToSentryLevel(NSString* string)

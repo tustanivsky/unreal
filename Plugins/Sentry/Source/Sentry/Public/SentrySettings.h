@@ -19,6 +19,25 @@ enum class ESentryTracesSamplingType : uint8
 	TracesSampler
 };
 
+UENUM(BlueprintType)
+enum class ESentryCliLogLevel : uint8
+{
+	Trace,
+	Debug,
+	Info,
+	Warn,
+	Error
+};
+
+UENUM(BlueprintType)
+enum class ESentryDatabaseLocation : uint8
+{
+	// Root directory of the current project - `FPaths::ProjectDir()`
+	ProjectDirectory,
+	// Root directory for user-specific game files - `FPaths::ProjectUserDir()`
+	ProjectUserDirectory
+};
+
 USTRUCT(BlueprintType)
 struct FAutomaticBreadcrumbs
 {
@@ -43,6 +62,32 @@ struct FAutomaticBreadcrumbs
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
 		Meta = (DisplayName = "User activity string changed", ToolTip = "Flag indicating whether to automatically add breadcrumb when application code changes the user activity hint string for analytics, crash reports, etc."))
 	bool bOnUserActivityStringChanged = false;
+};
+
+USTRUCT(BlueprintType)
+struct FAutomaticBreadcrumbsForLogs
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
+		Meta = (DisplayName = "Fatal", ToolTip = "Flag indicating whether to automatically add breadcrumb when printing log message with Fatal verbosity level."))
+	bool bOnFatalLog = true;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
+		Meta = (DisplayName = "Error", ToolTip = "Flag indicating whether to automatically add breadcrumb when printing log message with Error verbosity level."))
+	bool bOnErrorLog = true;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
+		Meta = (DisplayName = "Warning", ToolTip = "Flag indicating whether to automatically add breadcrumb when printing log message with Warning verbosity level."))
+	bool bOnWarningLog = true;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
+		Meta = (DisplayName = "Display/Log", ToolTip = "Flag indicating whether to automatically add breadcrumb when printing log message with Display/Log verbosity level."))
+	bool bOnInfoLog = false;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
+		Meta = (DisplayName = "Verbose/VeryVerbose", ToolTip = "Flag indicating whether to automatically add breadcrumb when printing log message with Verbose/VeryVerbose verbosity level."))
+	bool bOnDebugLog = false;
 };
 
 USTRUCT(BlueprintType)
@@ -173,10 +218,6 @@ class SENTRY_API USentrySettings : public UObject
 		Meta = (DisplayName = "Enable verbose logging", ToolTip = "Flag indicating whether to enable verbose logging on desktop."))
 	bool Debug;
 
-	UPROPERTY(Config, EditAnywhere, Category = "General",
-		Meta = (DisplayName = "Override Windows default crash capturing mechanism (UE 5.2+)", ToolTip = "Flag indicating whether to capture crashes automatically on Windows as an alternative to Crash Reporter."))
-	bool EnableAutoCrashCapturing;
-
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General",
 		Meta = (DisplayName = "Environment", ToolTip = "Environment which will be used for enriching events."))
 	FString Environment;
@@ -198,16 +239,24 @@ class SENTRY_API USentrySettings : public UObject
 	bool SendDefaultPii;
 
 	UPROPERTY(Config, EditAnywhere, Category = "General|Attachments",
-		Meta = (DisplayName = "Attach screenshots (for iOS only)", ToolTip = "Flag indicating whether to attach screenshot of the application when an error occurs."))
+		Meta = (DisplayName = "Attach screenshots", ToolTip = "Flag indicating whether to attach screenshot of the application when an error occurs. Currently this feature is supported for Windows and Linux only."))
 	bool AttachScreenshot;
+
+	UPROPERTY(Config, EditAnywhere, Category = "General|Attachments",
+		Meta = (DisplayName = "Attach GPU dump", ToolTip = "Flag indicating whether to attach GPU crash dump when an error occurs. Currently this feature is supported for Nvidia graphics only."))
+	bool AttachGpuDump;
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Breadcrumbs",
 		Meta = (DisplayName = "Max breadcrumbs", Tooltip = "Total amount of breadcrumbs that should be captured."))
 	int32 MaxBreadcrumbs;
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Breadcrumbs",
-		Meta = (DisplayName = "Automatically add breadcrumbs"))
+		Meta = (DisplayName = "Automatically add breadcrumbs for events"))
 	FAutomaticBreadcrumbs AutomaticBreadcrumbs;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Breadcrumbs",
+		Meta = (DisplayName = "Automatically add breadcrumbs for log messages with verbosity level"))
+	FAutomaticBreadcrumbsForLogs AutomaticBreadcrumbsForLogs;
 
 	UPROPERTY(Config, EditAnywhere, Category = "General|Release & Health",
 		Meta = (DisplayName = "Enable automatic session tracking ", ToolTip = "Flag indicating whether the SDK should automatically start a new session when it is initialized."))
@@ -237,6 +286,14 @@ class SENTRY_API USentrySettings : public UObject
 		Meta = (DisplayName = "Custom `beforeSend` event hanler", ToolTip = "Custom hanler for processing events before sending them to Sentry."))
 	TSubclassOf<USentryBeforeSendHandler> BeforeSendHandler;
 
+	UPROPERTY(Config, EditAnywhere, Category = "General|Desktop",
+		Meta = (DisplayName = "Override Windows default crash capturing mechanism (UE 5.2+)", ToolTip = "Flag indicating whether to capture crashes automatically on Windows as an alternative to Crash Reporter."))
+	bool EnableAutoCrashCapturing;
+
+	UPROPERTY(Config, EditAnywhere, Category = "General|Desktop",
+		Meta = (DisplayName = "Sentry database location (for Windows/Linux only)", ToolTip = "Location where Sentry stores its internal/temporary files."))
+	ESentryDatabaseLocation DatabaseLocation;
+
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Mobile",
 		Meta = (DisplayName = "In-app includes (for Android/Apple only)", Tooltip = "A list of string prefixes of module names that belong to the app."))
 	TArray<FString> InAppInclude;
@@ -244,6 +301,10 @@ class SENTRY_API USentrySettings : public UObject
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Mobile",
 		Meta = (DisplayName = "In-app exludes (for Android/Apple only)", Tooltip = "A list of string prefixes of module names that don't belong to the app."))
 	TArray<FString> InAppExclude;
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "General|Mobile",
+		Meta = (DisplayName = "Enable ANR error tracking", Tooltip = "Flag indicating whether to enable tracking of ANR (app not responding) errors."))
+	bool EnableAppNotRespondingTracking;
 
 	UPROPERTY(Config, EditAnywhere, Category = "General|Performance Monitoring",
 		Meta = (DisplayName = "Enable tracing", ToolTip = "Flag indicating whether to enable tracing for performance monitoring."))
@@ -302,6 +363,15 @@ class SENTRY_API USentrySettings : public UObject
 	UPROPERTY(Config, EditAnywhere, Category = "Debug Symbols",
 		Meta = (DisplayName = "Upload sources", ToolTip = "Flag indicating whether to automatically scan the debug files for references to source code files and upload them if any.", EditCondition = "UploadSymbolsAutomatically"))
 	bool IncludeSources;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Debug Symbols",
+		Meta = (DisplayName = "Diagnostic Level", ToolTip = "Logs verbosity level during symbol uploading.", EditCondition = "UploadSymbolsAutomatically"))
+	ESentryCliLogLevel DiagnosticLevel;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Debug Symbols",
+		Meta = (DisplayName = "Use legacy Sentry Gradle plugin (for Android only)", ToolTip = "Flag indicating whether to use legacy Sentry Gradle plugin for debug symbol upload. No engine's Gradle version bump is required if enabled. This can be used as a fallback if the newer Gradle 7.5 causing compatibility issues with other third-party plugins.",
+			EditCondition = "UploadSymbolsAutomatically"))
+	bool UseLegacyGradlePlugin;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Crash Reporter",
 		Meta = (DisplayName = "Crash Reporter Endpoint", ToolTip = "Endpoint that Unreal Engine Crah Reporter should use in order to upload crash data to Sentry."))

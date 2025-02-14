@@ -12,9 +12,10 @@ SentryEventDesktop::SentryEventDesktop()
 	EventDesktop = sentry_value_new_event();
 }
 
-SentryEventDesktop::SentryEventDesktop(sentry_value_t event)
+SentryEventDesktop::SentryEventDesktop(sentry_value_t event, bool isCrash)
 {
 	EventDesktop = event;
+	IsCrashEvent = isCrash;
 }
 
 SentryEventDesktop::~SentryEventDesktop()
@@ -30,7 +31,7 @@ sentry_value_t SentryEventDesktop::GetNativeObject()
 void SentryEventDesktop::SetMessage(const FString& message)
 {
 	sentry_value_t messageСontainer = sentry_value_new_object();
-	sentry_value_set_by_key(messageСontainer, "formatted", sentry_value_new_string(TCHAR_TO_ANSI(*message)));
+	sentry_value_set_by_key(messageСontainer, "formatted", sentry_value_new_string(TCHAR_TO_UTF8(*message)));
 	sentry_value_set_by_key(EventDesktop, "message", messageСontainer);
 }
 
@@ -56,6 +57,12 @@ ESentryLevel SentryEventDesktop::GetLevel() const
 
 bool SentryEventDesktop::IsCrash() const
 {
+	return IsCrashEvent;
+}
+
+bool SentryEventDesktop::IsAnr() const
+{
+	// ANR error tracking is not available in `sentry-native`
 	return false;
 }
 

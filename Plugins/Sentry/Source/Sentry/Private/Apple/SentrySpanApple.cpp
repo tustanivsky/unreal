@@ -2,14 +2,22 @@
 
 #include "SentrySpanApple.h"
 
+#include "SentryDefines.h"
+
+#include "Infrastructure/SentryConvertorsApple.h"
+
+#include "Convenience/SentryInclude.h"
+#include "Convenience/SentryMacro.h"
+
 SentrySpanApple::SentrySpanApple(id<SentrySpan> span)
 {
 	SpanApple = span;
+	[SpanApple retain];
 }
 
 SentrySpanApple::~SentrySpanApple()
 {
-	// Put custom destructor logic here if needed
+	[SpanApple release];
 }
 
 id<SentrySpan> SentrySpanApple::GetNativeObject()
@@ -17,9 +25,27 @@ id<SentrySpan> SentrySpanApple::GetNativeObject()
 	return SpanApple;
 }
 
+TSharedPtr<ISentrySpan> SentrySpanApple::StartChild(const FString& operation, const FString& desctiption)
+{
+	id<SentrySpan> span = [SpanApple startChildWithOperation:operation.GetNSString() description:desctiption.GetNSString()];
+	return MakeShareable(new SentrySpanApple(span));
+}
+
+TSharedPtr<ISentrySpan> SentrySpanApple::StartChildWithTimestamp(const FString& operation, const FString& desctiption, int64 timestamp)
+{
+	UE_LOG(LogSentrySdk, Log, TEXT("Starting child span with explicit timestamp not supported on Mac/iOS."));
+	return StartChild(operation, desctiption);
+}
+
 void SentrySpanApple::Finish()
 {
 	[SpanApple finish];
+}
+
+void SentrySpanApple::FinishWithTimestamp(int64 timestamp)
+{
+	UE_LOG(LogSentrySdk, Log, TEXT("Finishing span with explicit timestamp not supported on Mac/iOS."));
+	Finish();
 }
 
 bool SentrySpanApple::IsFinished() const
@@ -45,4 +71,12 @@ void SentrySpanApple::SetData(const FString& key, const TMap<FString, FString>& 
 void SentrySpanApple::RemoveData(const FString& key)
 {
 	[SpanApple removeDataForKey:key.GetNSString()];
+}
+
+void SentrySpanApple::GetTrace(FString& name, FString& value)
+{
+	SentryTraceHeader* traceHeader = [SpanApple toTraceHeader];
+
+	name = TEXT("sentry-trace");
+	value = FString([traceHeader value]);
 }

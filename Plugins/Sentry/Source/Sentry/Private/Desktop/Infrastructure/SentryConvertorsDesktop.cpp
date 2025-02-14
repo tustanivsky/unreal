@@ -1,15 +1,10 @@
 // Copyright (c) 2022 Sentry. All Rights Reserved.
 
 #include "SentryConvertorsDesktop.h"
-#include "SentryId.h"
-#include "SentryTransaction.h"
-#include "SentrySpan.h"
+
 #include "SentryDefines.h"
 
-#include "Desktop/SentryIdDesktop.h"
-#include "Desktop/SentryTransactionDesktop.h"
-#include "Desktop/SentrySpanDesktop.h"
-
+#include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
 #include "Dom/JsonObject.h"
@@ -71,6 +66,36 @@ sentry_value_t SentryConvertorsDesktop::StringArrayToNative(const TArray<FString
 	return sentryArray;
 }
 
+sentry_value_t SentryConvertorsDesktop::AddressToNative(uint64 address)
+{
+	char buffer[32];
+	size_t written = (size_t)snprintf(buffer, sizeof(buffer), "0x%llx", (unsigned long long)address);
+	if (written >= sizeof(buffer))
+	{
+		return sentry_value_new_null();
+	}
+	buffer[written] = '\0';
+	return sentry_value_new_string(buffer);
+}
+
+sentry_value_t SentryConvertorsDesktop::CallstackToNative(const TArray<FProgramCounterSymbolInfo>& callstack)
+{
+	int32 framesCount = callstack.Num();
+
+	sentry_value_t frames = sentry_value_new_list();
+	for (int i = 0; i < framesCount; ++i)
+	{
+		sentry_value_t frame = sentry_value_new_object();
+		sentry_value_set_by_key(frame, "instruction_addr", AddressToNative(callstack[framesCount - i - 1].ProgramCounter));
+		sentry_value_append(frames, frame);
+	}
+
+	sentry_value_t stacktrace = sentry_value_new_object();
+	sentry_value_set_by_key(stacktrace, "frames", frames);
+
+	return stacktrace;
+}
+
 ESentryLevel SentryConvertorsDesktop::SentryLevelToUnreal(sentry_value_t level)
 {
 	FString levelStr = FString(sentry_value_as_string(level));
@@ -110,30 +135,6 @@ ESentryLevel SentryConvertorsDesktop::SentryLevelToUnreal(sentry_level_t level)
 	}
 
 	return Level;
-}
-
-USentryId* SentryConvertorsDesktop::SentryIdToUnreal(sentry_uuid_t id)
-{
-	TSharedPtr<SentryIdDesktop> idNativeImpl = MakeShareable(new SentryIdDesktop(id));
-	USentryId* unrealId = NewObject<USentryId>();
-	unrealId->InitWithNativeImpl(idNativeImpl);
-	return unrealId;
-}
-
-USentryTransaction* SentryConvertorsDesktop::SentryTransactionToUnreal(sentry_transaction_t* transaction)
-{
-	TSharedPtr<SentryTransactionDesktop> transactionNativeImpl = MakeShareable(new SentryTransactionDesktop(transaction));
-	USentryTransaction* unrealTransaction = NewObject<USentryTransaction>();
-	unrealTransaction->InitWithNativeImpl(transactionNativeImpl);
-	return unrealTransaction;
-}
-
-USentrySpan* SentryConvertorsDesktop::SentrySpanToUnreal(sentry_span_t* span)
-{
-	TSharedPtr<SentrySpanDesktop> spanNativeImpl = MakeShareable(new SentrySpanDesktop(span));
-	USentrySpan* unrealSpan = NewObject<USentrySpan>();
-	unrealSpan->InitWithNativeImpl(spanNativeImpl);
-	return unrealSpan;
 }
 
 TMap<FString, FString> SentryConvertorsDesktop::StringMapToUnreal(sentry_value_t map)
@@ -216,6 +217,84 @@ TArray<uint8> SentryConvertorsDesktop::SentryEnvelopeToByteArray(sentry_envelope
 	sentry_string_free(serializedEnvelopeStr);
 
 	return envelopeData;
+}
+
+ELogVerbosity::Type SentryConvertorsDesktop::SentryLevelToLogVerbosity(sentry_level_t level)
+{
+	ELogVerbosity::Type LogVerbosity = ELogVerbosity::Error;
+
+	switch (level)
+	{
+	case SENTRY_LEVEL_DEBUG:
+		LogVerbosity = ELogVerbosity::Verbose;
+		break;
+	case SENTRY_LEVEL_INFO:
+		LogVerbosity = ELogVerbosity::Log;
+		break;
+	case SENTRY_LEVEL_WARNING:
+		LogVerbosity = ELogVerbosity::Warning;
+		break;
+	case SENTRY_LEVEL_ERROR:
+		LogVerbosity = ELogVerbosity::Error;
+		break;
+	case SENTRY_LEVEL_FATAL:
+		LogVerbosity = ELogVerbosity::Fatal;
+		break;
+	default:
+		UE_LOG(LogSentrySdk, Warning, TEXT("Unknown sentry level value used. Error will be returned."));
+	}
+
+	return LogVerbosity;
+}
+
+void SentryConvertorsDesktop::SentryCrashContextToString(const sentry_ucontext_t* crashContext, TCHAR* outErrorString, int32 errorStringBufSize)
+{
+#if PLATFORM_WINDOWS
+
+	EXCEPTION_RECORD* ExceptionRecord = crashContext->exception_ptrs.ExceptionRecord;
+
+	FString ErrorString = TEXT("Unhandled Exception: ");
+
+#define HANDLE_CASE(x) case x: ErrorString += TEXT(#x); break;
+
+	switch (ExceptionRecord->ExceptionCode)
+	{
+	case EXCEPTION_ACCESS_VIOLATION:
+		ErrorString += TEXT("EXCEPTION_ACCESS_VIOLATION ");
+		if (ExceptionRecord->ExceptionInformation[0] == 0)
+		{
+			ErrorString += TEXT("reading address ");
+		}
+		else if (ExceptionRecord->ExceptionInformation[0] == 1)
+		{
+			ErrorString += TEXT("writing address ");
+		}
+		ErrorString += FString::Printf(
+#if PLATFORM_64BITS
+			TEXT("0x%016llx")
+#else
+			TEXT("0x%08x")
+#endif
+			, ExceptionRecord->ExceptionInformation[1]);
+		break;
+		HANDLE_CASE(EXCEPTION_ARRAY_BOUNDS_EXCEEDED)
+		HANDLE_CASE(EXCEPTION_DATATYPE_MISALIGNMENT)
+		HANDLE_CASE(EXCEPTION_FLT_DENORMAL_OPERAND)
+		HANDLE_CASE(EXCEPTION_FLT_DIVIDE_BY_ZERO)
+		HANDLE_CASE(EXCEPTION_FLT_INVALID_OPERATION)
+		HANDLE_CASE(EXCEPTION_ILLEGAL_INSTRUCTION)
+		HANDLE_CASE(EXCEPTION_INT_DIVIDE_BY_ZERO)
+		HANDLE_CASE(EXCEPTION_PRIV_INSTRUCTION)
+		HANDLE_CASE(EXCEPTION_STACK_OVERFLOW)
+		default:
+			ErrorString += FString::Printf(TEXT("0x%08x"), (uint32)ExceptionRecord->ExceptionCode);
+	}
+
+	FCString::Strncpy(outErrorString, *ErrorString, errorStringBufSize);
+
+#undef HANDLE_CASE
+
+#endif
 }
 
 #endif

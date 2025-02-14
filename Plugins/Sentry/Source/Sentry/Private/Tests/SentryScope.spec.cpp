@@ -1,5 +1,6 @@
 ﻿// Copyright (c) 2022 Sentry. All Rights Reserved.
 
+#include "SentryTests.h"
 #include "SentryScope.h"
 #include "SentryEvent.h"
 
@@ -18,7 +19,7 @@
 
 #if WITH_AUTOMATION_TESTS
 
-BEGIN_DEFINE_SPEC(SentryScopeSpec, "Sentry.SentryScope", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(SentryScopeSpec, "Sentry.SentryScope", EAutomationTestFlags::ProductFilter | SentryApplicationContextMask)
 	USentryScope* SentryScope;
 	FString TestDist;
 	FString TestEnvironment;
@@ -156,9 +157,11 @@ void SentryScopeSpec::Define()
 
 			USentryEvent* SentryEvent = NewObject<USentryEvent>();
 
-			StaticCastSharedPtr<SentryScopeDesktop>(SentryScope->GetNativeImpl())->Apply(SentryEvent);
+			TSharedPtr<SentryEventDesktop> EventDesktop = StaticCastSharedPtr<SentryEventDesktop>(SentryEvent->GetNativeImpl());
 
-			sentry_value_t NativeEvent = StaticCastSharedPtr<SentryEventDesktop>(SentryEvent->GetNativeImpl())->GetNativeObject();
+			StaticCastSharedPtr<SentryScopeDesktop>(SentryScope->GetNativeImpl())->Apply(EventDesktop);
+
+			sentry_value_t NativeEvent = EventDesktop->GetNativeObject();
 
 			sentry_value_t level = sentry_value_get_by_key(NativeEvent, "level");
 			sentry_value_t dist = sentry_value_get_by_key(NativeEvent, "dist");

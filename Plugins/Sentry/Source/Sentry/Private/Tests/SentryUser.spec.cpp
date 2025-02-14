@@ -1,12 +1,13 @@
 // Copyright (c) 2022 Sentry. All Rights Reserved.
 
+#include "SentryTests.h"
 #include "SentryUser.h"
 
 #include "Misc/AutomationTest.h"
 
 #if WITH_AUTOMATION_TESTS
 
-BEGIN_DEFINE_SPEC(SentryUserSpec, "Sentry.SentryUser", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(SentryUserSpec, "Sentry.SentryUser", EAutomationTestFlags::ProductFilter | SentryApplicationContextMask)
 	USentryUser* SentryUser;
 END_DEFINE_SPEC(SentryUserSpec)
 
@@ -22,7 +23,7 @@ void SentryUserSpec::Define()
 		It("should persist their values", [this]()
 		{
 			const FString TestUsername = FString(TEXT("SentryUser"));
-			const FString TestEmail = FString(TEXT("user-mail@sentry.com"));
+			const FString TestEmail = FString(TEXT("user-mail@example.org"));
 			const FString TestIpAddress = FString(TEXT("127.0.0.1"));
 			const FString TestId = FString(TEXT("123"));
 

@@ -5,6 +5,7 @@
 
         <setBoolFromProperty result="bUploadSymbolsAutomatically" ini="Engine" section="/Script/Sentry.SentrySettings" property="UploadSymbolsAutomatically" default="false" />
         <setBoolFromProperty result="bIncludeSources" ini="Engine" section="/Script/Sentry.SentrySettings" property="IncludeSources" default="false" />
+        <setBoolFromProperty result="bUseLegacyGradlePlugin" ini="Engine" section="/Script/Sentry.SentrySettings" property="UseLegacyGradlePlugin" default="false" />
 
         <setStringFromProperty result="enabledBuildPlatforms" ini="Engine" section="/Script/Sentry.SentrySettings" property="EnableBuildPlatforms" default=""/>
         <setStringFromProperty result="enabledBuildConfigurations" ini="Engine" section="/Script/Sentry.SentrySettings" property="EnableBuildConfigurations" default=""/>
@@ -23,6 +24,21 @@
                 <setBool result="bUploadSymbols" value="$B(bUploadSymbolsAutomatically)"/>
             </false>
         </if>
+
+        <setBoolIsEqual result="bEngineMajorVersionEqual5" arg1="$I(EngineMajorVersion)" arg2="5" />
+        <setBoolIsGreaterEqual result="bEngineMinorVersionGreaterEqual5" arg1="$I(EngineMinorVersion)" arg2="5" />
+
+        <!-- In UE 5.5 and newer there's no need to bump the default Gradle version (8.7+) as it's compatible with Sentry gradle plugin anyway -->
+        <setBoolAnd result="bHasModernGradle" arg1="$B(bEngineMajorVersionEqual5)" arg2="$B(bEngineMinorVersionGreaterEqual5)"/>
+
+        <if condition="bHasModernGradle">
+            <true>
+                <log text="In UE 5.5 and newer using legacy Sentry gradle plugin in not supported."/>
+                <setBool result="bUseLegacyGradlePlugin" value="false"/>
+            </true>
+        </if>
+
+        <setBoolOr result="bSkipGradleOverride" arg1="$B(bUseLegacyGradlePlugin)" arg2="$B(bHasModernGradle)"/>
     </init>
 
     <prebuildCopies>
@@ -33,6 +49,13 @@
         <if condition="bUploadSymbols">
             <true>
                 <copyFile src="$S(ProjectDir)/sentry.properties" dst="$S(BuildDir)/gradle/sentry.properties" />
+                <copyFile src="$S(ProjectDir)/sentry.properties" dst="$S(BuildDir)/gradle/AFSProject/app/sentry.properties" />
+                <if condition="bSkipGradleOverride">
+                    <false>
+                        <log text="Modifying engine's Gradle version used by replacing gradle-wrapper.properties"/>
+                        <copyFile src="$S(PluginDir)/../../Gradle/gradle-wrapper.properties" dst="$S(BuildDir)/gradle/gradle/wrapper/gradle-wrapper.properties" />
+                    </false>
+                </if>
             </true>
         </if>
     </prebuildCopies>
@@ -69,6 +92,17 @@
                         uploadNativeSymbols = true
                     }
                 </insert>
+                <if condition="bUseLegacyGradlePlugin">
+                    <false>
+                        <insert>
+                            sentry {
+                                autoInstallation {
+                                    enabled = false
+                                }
+                            }
+                        </insert>
+                    </false>
+                </if>
                 <if condition="bIncludeSources">
                     <true>
                         <insert>
@@ -77,7 +111,7 @@
                             }
                         </insert>
                     </true>
-                </if> 
+                </if>
             </true>
         </if>
     </buildGradleAdditions>
@@ -134,21 +168,29 @@
     </baseBuildGradleAdditions>
 
     <buildscriptGradleAdditions>
-        <insert>
-            dependencies {
-                classpath 'com.android.tools.build:gradle:3.5.4'
-            }
-        </insert>
-    </buildscriptGradleAdditions>
-
-    <buildscriptGradleAdditions>
         <if condition="bUploadSymbols">
             <true>
-                <insert>
-                    dependencies {
-                        classpath 'io.sentry:sentry-android-gradle-plugin:2.1.5'
-                    }
-                </insert>
+                <if condition="bUseLegacyGradlePlugin">
+                    <true>
+                        <log text="Using legacy Sentry Gradle plugin 2.1.5 for Android debug symbol upload."/>
+                        <insert>
+                            dependencies {
+                                classpath 'com.android.tools.build:gradle:3.5.4'
+                                classpath 'io.sentry:sentry-android-gradle-plugin:2.1.5'
+                            }
+                        </insert>
+                    </true>
+                    <false>
+                        <log text="Using Sentry Gradle plugin 4.11.0 for Android debug symbol upload."/>
+                        <log text="Enable legacy Sentry Gradle plugin in project settings in case current version conflicts with other plugins (for UE 5.4 and older)."/>
+                        <insert>
+                            dependencies {
+                                classpath 'com.android.tools.build:gradle:7.4.2'
+                                classpath 'io.sentry:sentry-android-gradle-plugin:4.11.0'
+                            }
+                        </insert>
+                    </false>
+                </if>
             </true>
         </if>
     </buildscriptGradleAdditions>

@@ -3,7 +3,6 @@
 package io.sentry.unreal;
 
 import android.app.Activity;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -11,7 +10,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.sentry.Breadcrumb;
@@ -24,9 +25,15 @@ import io.sentry.Sentry;
 import io.sentry.SentryEvent;
 import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
+import io.sentry.android.core.AnrIntegration;
 import io.sentry.android.core.SentryAndroid;
 import io.sentry.android.core.SentryAndroidOptions;
+import io.sentry.exception.ExceptionMechanismException;
+import io.sentry.protocol.Mechanism;
+import io.sentry.protocol.SentryException;
 import io.sentry.protocol.SentryId;
+import io.sentry.protocol.SentryStackFrame;
+import io.sentry.protocol.SentryStackTrace;
 
 public class SentryBridgeJava {
 	public static native void onConfigureScope(long callbackAddr, IScope scope);
@@ -53,6 +60,7 @@ public class SentryBridgeJava {
 					options.setBeforeSend(new SentryOptions.BeforeSendCallback() {
 						@Override
 						public SentryEvent execute(SentryEvent event, Hint hint) {
+							preProcessEvent(event);
 							return onBeforeSend(beforeSendHandler, event, hint);
 						}
 					});
@@ -64,6 +72,7 @@ public class SentryBridgeJava {
 					for (int i = 0; i < Excludes.length(); i++) {
 						options.addInAppExclude(Excludes.getString(i));
 					}
+					options.setAnrEnabled(settingJson.getBoolean("enableAnrTracking"));
 					options.setEnableTracing(settingJson.getBoolean("enableTracing"));
 					if(settingJson.has("tracesSampleRate")) {
 						options.setTracesSampleRate(settingJson.getDouble("tracesSampleRate"));
@@ -73,12 +82,12 @@ public class SentryBridgeJava {
 						options.setTracesSampler(new SentryOptions.TracesSamplerCallback() {
 							@Override
 							public Double sample(SamplingContext samplingContext) {
-								float sampleRate = onTracesSampler(samplerAddr, samplingContext);
-								if(sampleRate >= 0.0f) {
-									return (double) sampleRate;
-								} else {
-									return null;
-								}
+							float sampleRate = onTracesSampler(samplerAddr, samplingContext);
+							if(sampleRate >= 0.0f) {
+								return (double) sampleRate;
+							} else {
+								return null;
+							}
 							}
 						});
 					}
@@ -87,6 +96,24 @@ public class SentryBridgeJava {
 				}
 			}
 		});
+	}
+
+	private static void preProcessEvent(SentryEvent event) {
+		if (event.getTags().containsKey("sentry_unreal_exception")) {
+			SentryException exception = event.getUnhandledException();
+			if (exception != null) {
+				exception.setType(event.getTag("sentry_unreal_exception_type"));
+				exception.setValue(event.getTag("sentry_unreal_exception_message"));
+				SentryStackTrace trace = exception.getStacktrace();
+				int numFramesToSkip = Integer.parseInt(event.getTag("sentry_unreal_exception_skip_frames"));
+				List<SentryStackFrame> frames = trace.getFrames();
+				trace.setFrames(frames.subList(0, frames.size() - numFramesToSkip));
+			}
+			event.removeTag("sentry_unreal_exception_type");
+			event.removeTag("sentry_unreal_exception_message");
+			event.removeTag("sentry_unreal_exception_skip_frames");
+			event.removeTag("sentry_unreal_exception");
+		}
 	}
 
 	public static void addBreadcrumb(final String message, final String category, final String type, final HashMap<String, String> data, final SentryLevel level) {
@@ -106,8 +133,8 @@ public class SentryBridgeJava {
 		SentryId messageId = Sentry.captureMessage(message, new ScopeCallback() {
 			@Override
 			public void run(@NonNull IScope scope) {
-				scope.setLevel(level);
-				onConfigureScope(callback, scope);
+			scope.setLevel(level);
+			onConfigureScope(callback, scope);
 			}
 		});
 		return messageId;
@@ -117,9 +144,19 @@ public class SentryBridgeJava {
 		SentryId eventId = Sentry.captureEvent(event, new ScopeCallback() {
 			@Override
 			public void run(@NonNull IScope scope) {
-				onConfigureScope(callback, scope);
+			onConfigureScope(callback, scope);
 			}
 		});
+		return eventId;
+	}
+
+	public static SentryId captureException(final String type, final String value) {
+		SentryException exception = new SentryException();
+		exception.setType(type);
+		exception.setValue(value);
+		SentryEvent event = new SentryEvent();
+		event.setExceptions(Collections.singletonList(exception));
+		SentryId eventId = Sentry.captureEvent(event);
 		return eventId;
 	}
 
@@ -179,5 +216,15 @@ public class SentryBridgeJava {
 			return -1;
 		}
 		return isCrashed ? 1 : 0;
+	}
+
+	public static boolean isAnrEvent(final SentryEvent event) {
+		Throwable throwable = event.getThrowableMechanism();
+		if (throwable instanceof ExceptionMechanismException) {
+			Mechanism m = ((ExceptionMechanismException) throwable).getExceptionMechanism();
+			return m.getType().equals("ANR");
+		} else {
+			return false;
+		}
 	}
 }

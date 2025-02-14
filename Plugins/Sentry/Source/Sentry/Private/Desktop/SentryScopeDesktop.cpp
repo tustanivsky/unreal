@@ -4,9 +4,10 @@
 #include "SentryBreadcrumbDesktop.h"
 #include "SentryEventDesktop.h"
 
-#include "SentryBreadcrumb.h"
-#include "SentryAttachment.h"
-#include "SentryEvent.h"
+#include "Interface/SentryAttachmentInterface.h"
+
+#include "SentryModule.h"
+#include "SentrySettings.h"
 
 #include "Infrastructure/SentryConvertorsDesktop.h"
 
@@ -17,21 +18,42 @@ SentryScopeDesktop::SentryScopeDesktop()
 {
 }
 
+SentryScopeDesktop::SentryScopeDesktop(const SentryScopeDesktop& Scope)
+{
+	Dist = Scope.Dist;
+	Environment = Scope.Environment;
+	FingerprintDesktop = Scope.FingerprintDesktop;
+	TagsDesktop = Scope.TagsDesktop;
+	ExtraDesktop = Scope.ExtraDesktop;
+	ContextsDesktop = Scope.ContextsDesktop;
+	BreadcrumbsDesktop = TRingBuffer<TSharedPtr<SentryBreadcrumbDesktop>>(Scope.BreadcrumbsDesktop);
+	LevelDesktop = Scope.LevelDesktop;
+}
+
 SentryScopeDesktop::~SentryScopeDesktop()
 {
 }
 
-void SentryScopeDesktop::AddBreadcrumb(USentryBreadcrumb* breadcrumb)
+void SentryScopeDesktop::AddBreadcrumb(TSharedPtr<ISentryBreadcrumb> breadcrumb)
 {
-	BreadcrumbsDesktop.Add(StaticCastSharedPtr<SentryBreadcrumbDesktop>(breadcrumb->GetNativeImpl()));
+	FScopeLock Lock(&CriticalSection);
+
+	if(BreadcrumbsDesktop.Num() >= FSentryModule::Get().GetSettings()->MaxBreadcrumbs)
+	{
+		BreadcrumbsDesktop.PopFront();
+	}
+
+	BreadcrumbsDesktop.Add(StaticCastSharedPtr<SentryBreadcrumbDesktop>(breadcrumb));
 }
 
 void SentryScopeDesktop::ClearBreadcrumbs()
 {
+	FScopeLock Lock(&CriticalSection);
+
 	BreadcrumbsDesktop.Empty();
 }
 
-void SentryScopeDesktop::AddAttachment(USentryAttachment* attachment)
+void SentryScopeDesktop::AddAttachment(TSharedPtr<ISentryAttachment> attachment)
 {
 	// Not available for desktop
 }
@@ -166,11 +188,9 @@ void SentryScopeDesktop::Clear()
 	LevelDesktop = ESentryLevel::Debug;
 }
 
-void SentryScopeDesktop::Apply(USentryEvent* event)
+void SentryScopeDesktop::Apply(TSharedPtr<SentryEventDesktop> event)
 {
-	TSharedPtr<SentryEventDesktop> eventDesktop = StaticCastSharedPtr<SentryEventDesktop>(event->GetNativeImpl());
-
-	sentry_value_t nativeEvent = eventDesktop->GetNativeObject();
+	sentry_value_t nativeEvent = event->GetNativeObject();
 
 	sentry_value_t eventLevel = sentry_value_get_by_key(nativeEvent, "level");
 
@@ -251,7 +271,7 @@ void SentryScopeDesktop::Apply(USentryEvent* event)
 		}
 	}
 
-	if(BreadcrumbsDesktop.Num() > 0)
+	if(!BreadcrumbsDesktop.IsEmpty())
 	{
 		sentry_value_t eventBreadcrumbs = sentry_value_get_by_key(nativeEvent, "breadcrumbs");
 		if(sentry_value_is_null(eventBreadcrumbs))
@@ -264,7 +284,7 @@ void SentryScopeDesktop::Apply(USentryEvent* event)
 				sentry_value_incref(nativeBreadcrumb);
 				sentry_value_append(eventBreadcrumbs, nativeBreadcrumb);
 			}
-	
+
 			sentry_value_set_by_key(nativeEvent, "breadcrumbs", eventBreadcrumbs);
 		}
 		else

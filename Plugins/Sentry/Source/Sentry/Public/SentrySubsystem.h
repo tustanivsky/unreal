@@ -22,6 +22,8 @@ class USentryTraceSampler;
 class USentryTransactionContext;
 
 class ISentrySubsystem;
+class FSentryOutputDevice;
+class FSentryOutputDeviceError;
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FConfigureSettingsDelegate, USentrySettings*, Settings);
 
@@ -119,8 +121,9 @@ public:
 	 *
 	 * @note: Not supported for Windows/Linux.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Sentry", meta = (AutoCreateRefTerm = "OnCofigureScope"))
+	UFUNCTION(BlueprintCallable, Category = "Sentry", meta = (AutoCreateRefTerm = "OnConfigureScope"))
 	USentryId* CaptureMessageWithScope(const FString& Message, const FConfigureScopeDelegate& OnConfigureScope, ESentryLevel Level = ESentryLevel::Info);
+	USentryId* CaptureMessageWithScope(const FString& Message, const FConfigureScopeNativeDelegate& OnConfigureScope, ESentryLevel Level = ESentryLevel::Info);
 
 	/**
 	 * Captures a manually created event and sends it to Sentry.
@@ -140,6 +143,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Sentry")
 	USentryId* CaptureEventWithScope(USentryEvent* Event, const FConfigureScopeDelegate& OnConfigureScope);
+	USentryId* CaptureEventWithScope(USentryEvent* Event, const FConfigureScopeNativeDelegate& OnConfigureScope);
 
 	/**
 	 * Captures a user feedback.
@@ -186,9 +190,10 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Sentry", meta = (AutoCreateRefTerm = "OnCofigureScope"))
 	void ConfigureScope(const FConfigureScopeDelegate& OnConfigureScope);
+	void ConfigureScope(const FConfigureScopeNativeDelegate& OnConfigureScope);
 
 	/**
-	 * Sets context values which will be used for enriching events. 
+	 * Sets context values which will be used for enriching events.
 	 *
 	 * @param Key Context key.
 	 * @param Values Context values.
@@ -256,6 +261,17 @@ public:
 	USentryTransaction* StartTransactionWithContext(USentryTransactionContext* Context);
 
 	/**
+	 * Starts a new transaction with given context and timestamp.
+	 * Currently setting the explicit transaction timings takes effect on Windows and Linux only.
+	 * On other platforms starts transaction like regular `StartTransactionWithContext`.
+	 *
+	 * @param Context Transaction context.
+	 * @param Timestamp Transaction timestamp (microseconds since the Unix epoch).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sentry")
+	USentryTransaction* StartTransactionWithContextAndTimestamp(USentryTransactionContext* Context, int64 Timestamp);
+
+	/**
 	 * Starts a new transaction with given context and options.
 	 *
 	 * @param Context Transaction context.
@@ -263,6 +279,20 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Sentry")
 	USentryTransaction* StartTransactionWithContextAndOptions(USentryTransactionContext* Context, const TMap<FString, FString>& Options);
+
+	/**
+	 * Creates a transaction context to propagate distributed tracing metadata from upstream
+	 * services and continue a trace based on corresponding HTTP header values.
+	 *
+	 * @param SentryTrace Incoming request 'sentry-trace' header
+	 * @param BaggageHeaders Incoming request 'baggage' headers
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sentry", meta = (AutoCreateRefTerm = "BaggageHeaders"))
+	USentryTransactionContext* ContinueTrace(const FString& SentryTrace, const TArray<FString>& BaggageHeaders);
+
+	/** Checks if Sentry event capturing is supported for current settings. */
+	UFUNCTION(BlueprintCallable, Category = "Sentry")
+	bool IsSupportedForCurrentSettings();
 
 private:
 	/** Adds default context data for all events captured by Sentry SDK. */
@@ -283,17 +313,29 @@ private:
 	/** Unsubscribe from game events that are used for automatic breadcrumbs. */
 	void DisableAutomaticBreadcrumbs();
 
-	/** Check whether the event capturing should be disabled for the current build configuration */
+	/** Check whether the event capturing should be enabled for the current build configuration */
 	bool IsCurrentBuildConfigurationEnabled();
 
-	/** Check whether the event capturing should be disabled for the current build configuration */
+	/** Check whether the event capturing should be enabled for the current build target */
 	bool IsCurrentBuildTargetEnabled();
 
-	/** Check whether the event capturing should be disabled for the current build configuration */
+	/** Check whether the event capturing should be enabled for the current platform */
 	bool IsCurrentPlatformEnabled();
+
+	/** Check whether the event capturing should be enabled for promoted builds only */
+	bool IsPromotedBuildsOnlyEnabled();
+
+	/** Add custom Sentry output device to intercept logs */
+	void ConfigureOutputDevice();
+
+	/** Add custom Sentry output device to intercept errors */
+	void ConfigureOutputDeviceError();
 
 private:
 	TSharedPtr<ISentrySubsystem> SubsystemNativeImpl;
+
+	TSharedPtr<FSentryOutputDevice> OutputDevice;
+	TSharedPtr<FSentryOutputDeviceError> OutputDeviceError;
 
 	UPROPERTY()
 	USentryBeforeSendHandler* BeforeSendHandler;
@@ -306,4 +348,7 @@ private:
 	FDelegateHandle GameStateChangedDelegate;
 	FDelegateHandle UserActivityChangedDelegate;
 	FDelegateHandle GameSessionIDChangedDelegate;
+
+	FDelegateHandle OnAssertDelegate;
+	FDelegateHandle OnEnsureDelegate;
 };

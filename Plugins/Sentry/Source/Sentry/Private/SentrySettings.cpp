@@ -14,27 +14,32 @@ USentrySettings::USentrySettings(const FObjectInitializer& ObjectInitializer)
 	, InitAutomatically(true)
 	, Dsn()
 	, Debug(true)
-	, EnableAutoCrashCapturing(true)
 	, Environment(GetDefaultEnvironmentName())
 	, SampleRate(1.0f)
 	, EnableAutoLogAttachment(false)
 	, AttachStacktrace(true)
-	, SendDefaultPii(false) 
+	, SendDefaultPii(false)
 	, AttachScreenshot(false)
-	, MaxBreadcrumbs(100)
+	, AttachGpuDump(true)
+	, MaxBreadcrumbs(100) 
 	, EnableAutoSessionTracking(true)
 	, SessionTimeout(30000)
 	, OverrideReleaseName(false)
 	, UseProxy(false)
 	, ProxyUrl()
 	, BeforeSendHandler(USentryBeforeSendHandler::StaticClass())
+	, EnableAutoCrashCapturing(true)
+	, DatabaseLocation(ESentryDatabaseLocation::ProjectUserDirectory)
+	, EnableAppNotRespondingTracking(false)
 	, EnableTracing(false)
 	, SamplingType(ESentryTracesSamplingType::UniformSampleRate)
 	, TracesSampleRate(0.0f)
 	, TracesSampler(USentryTraceSampler::StaticClass())
 	, EnableForPromotedBuildsOnly(false)
-	, UploadSymbolsAutomatically(false)
+	, UploadSymbolsAutomatically(false)	
 	, IncludeSources(false)
+	, DiagnosticLevel(ESentryCliLogLevel::Info)
+	, UseLegacyGradlePlugin(false)
 	, CrashReporterUrl()
 	, bIsDirty(false)
 {
@@ -63,6 +68,8 @@ void USentrySettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, OrgName) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, AuthToken) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, IncludeSources) ||
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, UseLegacyGradlePlugin) ||
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, DiagnosticLevel) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, CrashReporterUrl))
 	{
 		return;
@@ -128,7 +135,12 @@ void USentrySettings::LoadDebugSymbolsProperties()
 	}
 	else
 	{
-		UE_LOG(LogSentrySdk, Warning, TEXT("Sentry plugin can't find sentry.properties file"));
+		bool UploadSymbols = false;
+		GConfig->GetBool(TEXT("/Script/Sentry.SentrySettings"), TEXT("UploadSymbolsAutomatically"), UploadSymbols, *GetDefaultConfigFilename());
+		if (UploadSymbols)
+		{
+			UE_LOG(LogSentrySdk, Warning, TEXT("Sentry plugin can't find sentry.properties file"));
+		}
 	}
 }
 

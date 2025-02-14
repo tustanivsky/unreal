@@ -4,21 +4,23 @@
 #include "SentryEventDesktop.h"
 #include "SentryBreadcrumbDesktop.h"
 #include "SentryUserDesktop.h"
+#include "SentryUserFeedbackDesktop.h"
 #include "SentryScopeDesktop.h"
 #include "SentryTransactionDesktop.h"
 #include "SentryTransactionContextDesktop.h"
+#include "SentryIdDesktop.h"
 
 #include "SentryDefines.h"
 #include "SentrySettings.h"
 #include "SentryEvent.h"
-#include "SentryBreadcrumb.h"
-#include "SentryUserFeedback.h"
-#include "SentryUser.h"
-#include "SentryTransaction.h"
 #include "SentryModule.h"
 #include "SentryBeforeSendHandler.h"
+
 #include "SentryTraceSampler.h"
-#include "SentryTransactionContext.h"
+
+#include "Utils/SentryFileUtils.h"
+#include "Utils/SentryLogUtils.h"
+#include "Utils/SentryScreenshotUtils.h"
 
 #include "Infrastructure/SentryConvertorsDesktop.h"
 
@@ -29,14 +31,21 @@
 
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
+#include "Misc/CoreDelegates.h"
 #include "HAL/FileManager.h"
-#include "Runtime/Launch/Resources/Version.h"
+#include "Misc/EngineVersionComparison.h"
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
+#include "HAL/ExceptionHandling.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/UObjectThreadContext.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsPlatformMisc.h"
+#include "Windows/WindowsPlatformCrashContext.h"
 #endif
+
+extern CORE_API bool GIsGPUCrashed;
 
 #if USE_SENTRY_NATIVE
 
@@ -45,28 +54,123 @@ void PrintVerboseLog(sentry_level_t level, const char *message, va_list args, vo
 	char buffer[512];
 	vsnprintf(buffer, 512, message, args);
 
-	UE_LOG(LogSentrySdk, Log, TEXT("%s"), *FString(buffer));
+	FString MessageBuf = FString(buffer);
+
+	// The WER (Windows Error Reporting) module (crashpad_wer.dll) can't be distributed along with other Sentry binaries
+	// within the plugin package due to some UE Marketplace restrictions. Its absence doesn't affect crash capturing
+	// and the corresponding warning can be disregarded
+	if(MessageBuf.Equals(TEXT("crashpad WER handler module not found")))
+	{
+		return;
+	}
+
+#if !NO_LOGGING
+	const FName SentryCategoryName(LogSentrySdk.GetCategoryName());
+#else
+	const FName SentryCategoryName(TEXT("LogSentrySdk"));
+#endif
+
+	GLog->CategorizedLogf(SentryCategoryName, SentryConvertorsDesktop::SentryLevelToLogVerbosity(level), TEXT("%s"), *MessageBuf);
+}
+
+void PrintCrashLog(const sentry_ucontext_t *uctx)
+{
+#if PLATFORM_WINDOWS && !UE_VERSION_OLDER_THAN(5, 0, 0)
+
+	SentryConvertorsDesktop::SentryCrashContextToString(uctx, GErrorExceptionDescription, UE_ARRAY_COUNT(GErrorExceptionDescription));
+
+	const SIZE_T StackTraceSize = 65535;
+	ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
+	StackTrace[0] = 0;
+
+	// Currently raw crash data stored in `uctx` can be utilized for stalk walking on Windows only
+	void* ProgramCounter = uctx->exception_ptrs.ExceptionRecord->ExceptionAddress;
+
+	FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, ProgramCounter);
+
+	FCString::Strncat(GErrorHist, GErrorExceptionDescription, UE_ARRAY_COUNT(GErrorHist));
+	FCString::Strncat(GErrorHist, TEXT("\r\n\r\n"), UE_ARRAY_COUNT(GErrorHist));
+	FCString::Strncat(GErrorHist, ANSI_TO_TCHAR(StackTrace), UE_ARRAY_COUNT(GErrorHist));
+
+#if !NO_LOGGING
+	FDebug::LogFormattedMessageWithCallstack(LogSentrySdk.GetCategoryName(), __FILE__, __LINE__, TEXT("=== Critical error: ==="), GErrorHist, ELogVerbosity::Error);
+#endif
+
+#if !UE_VERSION_OLDER_THAN(5, 1, 0)
+	GLog->Panic();
+#endif
+
+	GMalloc->Free(StackTrace);
+
+#endif
 }
 
 sentry_value_t HandleBeforeSend(sentry_value_t event, void *hint, void *closure)
 {
 	SentrySubsystemDesktop* SentrySubsystem = static_cast<SentrySubsystemDesktop*>(closure);
 
+	TSharedPtr<SentryEventDesktop> eventDesktop = MakeShareable(new SentryEventDesktop(event));
+
+	SentrySubsystem->GetCurrentScope()->Apply(eventDesktop);
+
+	FGCScopeGuard GCScopeGuard;
+
 	USentryEvent* EventToProcess = NewObject<USentryEvent>();
-	EventToProcess->InitWithNativeImpl(MakeShareable(new SentryEventDesktop(event)));
+	EventToProcess->InitWithNativeImpl(eventDesktop);
 
-	SentrySubsystem->GetCurrentScope()->Apply(EventToProcess);
+	USentryEvent* ProcessedEvent = EventToProcess;
+	if(!FUObjectThreadContext::Get().IsRoutingPostLoad)
+	{
+		// Executing UFUNCTION is allowed only when not post-loading
+		ProcessedEvent = SentrySubsystem->GetBeforeSendHandler()->HandleBeforeSend(EventToProcess, nullptr);
+	}
 
-	return SentrySubsystem->GetBeforeSendHandler()->HandleBeforeSend(EventToProcess, nullptr) ? event : sentry_value_new_null();
+	return ProcessedEvent ? event : sentry_value_new_null();
 }
 
 sentry_value_t HandleBeforeCrash(const sentry_ucontext_t *uctx, sentry_value_t event, void *closure)
 {
+#if PLATFORM_WINDOWS
+	// Ensures that error message and corresponding callstack flushed to a log file (if available)
+	// before it's attached to the captured crash event and uploaded to Sentry.
+	PrintCrashLog(uctx);
+#endif
+
 	SentrySubsystemDesktop* SentrySubsystem = static_cast<SentrySubsystemDesktop*>(closure);
+	SentrySubsystem->TryCaptureScreenshot();
+
+	if (GIsGPUCrashed)
+	{
+		IFileManager::Get().Copy(*SentrySubsystem->GetGpuDumpBackupPath(), *SentryFileUtils::GetGpuDumpPath());
+	}
 
 	FSentryCrashContext::Get()->Apply(SentrySubsystem->GetCurrentScope());
 
-	return HandleBeforeSend(event, nullptr, closure);
+	TSharedPtr<SentryEventDesktop> eventDesktop = MakeShareable(new SentryEventDesktop(event, true));
+
+	SentrySubsystem->GetCurrentScope()->Apply(eventDesktop);
+
+	if(!IsGarbageCollecting())
+	{
+		USentryEvent* EventToProcess = NewObject<USentryEvent>();
+		EventToProcess->InitWithNativeImpl(eventDesktop);
+
+		USentryEvent* ProcessedEvent = EventToProcess;
+		if(!FUObjectThreadContext::Get().IsRoutingPostLoad)
+		{
+			// Executing UFUNCTION is allowed only when not post-loading
+			ProcessedEvent = SentrySubsystem->GetBeforeSendHandler()->HandleBeforeSend(EventToProcess, nullptr);
+		}
+
+		return ProcessedEvent ? event : sentry_value_new_null();
+	}
+	else
+	{
+		// If crash occured during garbage collection we can't just obtain a GC lock like with normal events
+		// since there is no guarantee it will be ever freed. In this case crash event will be reported
+		// without calling a `beforeSend` handler.
+		return event;
+	}
 }
 
 SentrySubsystemDesktop::SentrySubsystemDesktop()
@@ -74,6 +178,7 @@ SentrySubsystemDesktop::SentrySubsystemDesktop()
 	, crashReporter(MakeShareable(new SentryCrashReporter))
 	, isEnabled(false)
 	, isStackTraceEnabled(true)
+	, isScreenshotAttachmentEnabled(false)
 {
 }
 
@@ -93,6 +198,42 @@ void SentrySubsystemDesktop::InitWithSettings(const USentrySettings* settings, U
 		sentry_options_add_attachmentw(options, *FPaths::ConvertRelativePathToFull(LogFilePath));
 #elif PLATFORM_LINUX
 		sentry_options_add_attachment(options, TCHAR_TO_UTF8(*FPaths::ConvertRelativePathToFull(LogFilePath)));
+#endif
+	}
+
+	switch (settings->DatabaseLocation)
+	{
+	case ESentryDatabaseLocation::ProjectDirectory:
+		databaseParentPath = FPaths::ProjectDir();
+		break;
+	case ESentryDatabaseLocation::ProjectUserDirectory:
+		databaseParentPath = FPaths::ProjectUserDir();
+		break;
+	}
+
+	if(databaseParentPath.IsEmpty())
+	{
+		UE_LOG(LogSentrySdk, Warning, TEXT("Unknown Sentry database location. Falling back to FPaths::ProjectUserDir()."));
+		databaseParentPath = FPaths::ProjectUserDir();
+	}
+
+	if(settings->AttachScreenshot)
+	{
+		isScreenshotAttachmentEnabled = true;
+
+#if PLATFORM_WINDOWS
+		sentry_options_add_attachmentw(options, *GetScreenshotPath());
+#elif PLATFORM_LINUX
+		sentry_options_add_attachment(options, TCHAR_TO_UTF8(*GetScreenshotPath()));
+#endif
+	}
+
+	if (settings->AttachGpuDump)
+	{
+#if PLATFORM_WINDOWS
+		sentry_options_add_attachmentw(options, *GetGpuDumpBackupPath());
+#elif PLATFORM_LINUX
+		sentry_options_add_attachment(options, TCHAR_TO_UTF8(*GetGpuDumpBackupPath()));
 #endif
 	}
 
@@ -124,13 +265,13 @@ void SentrySubsystemDesktop::InitWithSettings(const USentrySettings* settings, U
 		sentry_options_set_handler_pathw(options, *HandlerPath);
 	}
 #elif PLATFORM_LINUX
-	sentry_options_set_handler_path(options, TCHAR_TO_ANSI(*GetHandlerPath()));
+	sentry_options_set_handler_path(options, TCHAR_TO_UTF8(*GetHandlerPath()));
 #endif
 
 #if PLATFORM_WINDOWS
 	sentry_options_set_database_pathw(options, *GetDatabasePath());
 #elif PLATFORM_LINUX
-	sentry_options_set_database_path(options, TCHAR_TO_ANSI(*GetDatabasePath()));
+	sentry_options_set_database_path(options, TCHAR_TO_UTF8(*GetDatabasePath()));
 #endif
 
 	sentry_options_set_release(options, TCHAR_TO_ANSI(settings->OverrideReleaseName
@@ -146,6 +287,7 @@ void SentrySubsystemDesktop::InitWithSettings(const USentrySettings* settings, U
 	sentry_options_set_max_breadcrumbs(options, settings->MaxBreadcrumbs);
 	sentry_options_set_before_send(options, HandleBeforeSend, this);
 	sentry_options_set_on_crash(options, HandleBeforeCrash, this);
+	sentry_options_set_shutdown_timeout(options, 3000);
 
 #if PLATFORM_LINUX
 	sentry_options_set_transport(options, FSentryTransport::Create());
@@ -159,7 +301,7 @@ void SentrySubsystemDesktop::InitWithSettings(const USentrySettings* settings, U
 
 	sentry_clear_crashed_last_run();
 
-#if PLATFORM_WINDOWS && ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if PLATFORM_WINDOWS && !UE_VERSION_OLDER_THAN(5, 2, 0)
 	FPlatformMisc::SetCrashHandlingType(settings->EnableAutoCrashCapturing
 		? ECrashHandlingType::Disabled
 		: ECrashHandlingType::Default);
@@ -207,9 +349,21 @@ ESentryCrashedLastRun SentrySubsystemDesktop::IsCrashedLastRun()
 	return unrealIsCrashed;
 }
 
-void SentrySubsystemDesktop::AddBreadcrumb(USentryBreadcrumb* breadcrumb)
+void SentrySubsystemDesktop::AddBreadcrumb(TSharedPtr<ISentryBreadcrumb> breadcrumb)
 {
 	GetCurrentScope()->AddBreadcrumb(breadcrumb);
+}
+
+void SentrySubsystemDesktop::AddBreadcrumbWithParams(const FString& Message, const FString& Category, const FString& Type, const TMap<FString, FString>& Data, ESentryLevel Level)
+{
+	TSharedPtr<SentryBreadcrumbDesktop> breadcrumbDesktop = MakeShareable(new SentryBreadcrumbDesktop());
+	breadcrumbDesktop->SetMessage(Message);
+	breadcrumbDesktop->SetCategory(Category);
+	breadcrumbDesktop->SetType(Type);
+	breadcrumbDesktop->SetData(Data);
+	breadcrumbDesktop->SetLevel(Level);
+
+	GetCurrentScope()->AddBreadcrumb(breadcrumbDesktop);
 }
 
 void SentrySubsystemDesktop::ClearBreadcrumbs()
@@ -217,9 +371,9 @@ void SentrySubsystemDesktop::ClearBreadcrumbs()
 	GetCurrentScope()->ClearBreadcrumbs();
 }
 
-USentryId* SentrySubsystemDesktop::CaptureMessage(const FString& message, ESentryLevel level)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureMessage(const FString& message, ESentryLevel level)
 {
-	sentry_value_t sentryEvent = sentry_value_new_message_event(SentryConvertorsDesktop::SentryLevelToNative(level), nullptr, TCHAR_TO_ANSI(*message));
+	sentry_value_t sentryEvent = sentry_value_new_message_event(SentryConvertorsDesktop::SentryLevelToNative(level), nullptr, TCHAR_TO_UTF8(*message));
 
 	if(isStackTraceEnabled)
 	{
@@ -227,30 +381,27 @@ USentryId* SentrySubsystemDesktop::CaptureMessage(const FString& message, ESentr
 	}
 
 	sentry_uuid_t id = sentry_capture_event(sentryEvent);
-	return SentryConvertorsDesktop::SentryIdToUnreal(id);
+	return MakeShareable(new SentryIdDesktop(id));
 }
 
-USentryId* SentrySubsystemDesktop::CaptureMessageWithScope(const FString& message, const FConfigureScopeDelegate& onScopeConfigure, ESentryLevel level)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureMessageWithScope(const FString& message, const FSentryScopeDelegate& onScopeConfigure, ESentryLevel level)
 {
 	FScopeLock Lock(&CriticalSection);
 
 	TSharedPtr<SentryScopeDesktop> NewLocalScope = MakeShareable(new SentryScopeDesktop(*GetCurrentScope()));
 
-	USentryScope* Scope = NewObject<USentryScope>();
-	Scope->InitWithNativeImpl(NewLocalScope);
-
-	onScopeConfigure.ExecuteIfBound(Scope);
+	onScopeConfigure.ExecuteIfBound(NewLocalScope);
 
 	scopeStack.Push(NewLocalScope);
-	USentryId* Id = CaptureMessage(message, level);
+	TSharedPtr<ISentryId> Id = CaptureMessage(message, level);
 	scopeStack.Pop();
 
 	return Id;
 }
 
-USentryId* SentrySubsystemDesktop::CaptureEvent(USentryEvent* event)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureEvent(TSharedPtr<ISentryEvent> event)
 {
-	TSharedPtr<SentryEventDesktop> eventDesktop = StaticCastSharedPtr<SentryEventDesktop>(event->GetNativeImpl());
+	TSharedPtr<SentryEventDesktop> eventDesktop = StaticCastSharedPtr<SentryEventDesktop>(event);
 
 	sentry_value_t nativeEvent = eventDesktop->GetNativeObject();
 
@@ -260,38 +411,73 @@ USentryId* SentrySubsystemDesktop::CaptureEvent(USentryEvent* event)
 	}
 
 	sentry_uuid_t id = sentry_capture_event(nativeEvent);
-	return SentryConvertorsDesktop::SentryIdToUnreal(id);
+	return MakeShareable(new SentryIdDesktop(id));
 }
 
-USentryId* SentrySubsystemDesktop::CaptureEventWithScope(USentryEvent* event, const FConfigureScopeDelegate& onScopeConfigure)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureEventWithScope(TSharedPtr<ISentryEvent> event, const FSentryScopeDelegate& onScopeConfigure)
 {
 	FScopeLock Lock(&CriticalSection);
 
 	TSharedPtr<SentryScopeDesktop> NewLocalScope = MakeShareable(new SentryScopeDesktop(*GetCurrentScope()));
 
-	USentryScope* Scope = NewObject<USentryScope>();
-	Scope->InitWithNativeImpl(NewLocalScope);
-
-	onScopeConfigure.ExecuteIfBound(Scope);
+	onScopeConfigure.ExecuteIfBound(NewLocalScope);
 
 	scopeStack.Push(NewLocalScope);
-	USentryId* Id = CaptureEvent(event);
+	TSharedPtr<ISentryId> Id = CaptureEvent(event);
 	scopeStack.Pop();
 
 	return Id;
 }
 
-void SentrySubsystemDesktop::CaptureUserFeedback(USentryUserFeedback* userFeedback)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureException(const FString& type, const FString& message, int32 framesToSkip)
 {
-	UE_LOG(LogSentrySdk, Log, TEXT("CaptureUserFeedback method is not supported for the current platform."));
+	sentry_value_t exceptionEvent = sentry_value_new_event();
+
+	auto StackFrames = FGenericPlatformStackWalk::GetStack(framesToSkip);
+	sentry_value_set_by_key(exceptionEvent, "stacktrace", SentryConvertorsDesktop::CallstackToNative(StackFrames));
+
+	sentry_value_t nativeException = sentry_value_new_exception(TCHAR_TO_ANSI(*type), TCHAR_TO_ANSI(*message));
+	sentry_event_add_exception(exceptionEvent, nativeException);
+
+	sentry_uuid_t id = sentry_capture_event(exceptionEvent);
+	return MakeShareable(new SentryIdDesktop(id));
 }
 
-void SentrySubsystemDesktop::SetUser(USentryUser* user)
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureAssertion(const FString& type, const FString& message)
 {
-	TSharedPtr<SentryUserDesktop> userDesktop = StaticCastSharedPtr<SentryUserDesktop>(user->GetNativeImpl());
+#if PLATFORM_WINDOWS
+	int32 framesToSkip = 7;
+#else
+	int32 framesToSkip = 5;
+#endif
+
+	SentryLogUtils::LogStackTrace(*message, ELogVerbosity::Error, framesToSkip);
+
+	return CaptureException(type, message, framesToSkip);
+}
+
+TSharedPtr<ISentryId> SentrySubsystemDesktop::CaptureEnsure(const FString& type, const FString& message)
+{
+#if PLATFORM_WINDOWS && !UE_VERSION_OLDER_THAN(5, 3, 0)
+	int32 framesToSkip = 8;
+#else
+	int32 framesToSkip = 7;
+#endif
+	return CaptureException(type, message, framesToSkip);
+}
+
+void SentrySubsystemDesktop::CaptureUserFeedback(TSharedPtr<ISentryUserFeedback> userFeedback)
+{
+	TSharedPtr<SentryUserFeedbackDesktop> userFeedbackDesktop = StaticCastSharedPtr<SentryUserFeedbackDesktop>(userFeedback);
+	sentry_capture_user_feedback(userFeedbackDesktop->GetNativeObject());
+}
+
+void SentrySubsystemDesktop::SetUser(TSharedPtr<ISentryUser> user)
+{
+	TSharedPtr<SentryUserDesktop> userDesktop = StaticCastSharedPtr<SentryUserDesktop>(user);
 	sentry_set_user(userDesktop->GetNativeObject());
 
-	crashReporter->SetUser(user);
+	crashReporter->SetUser(userDesktop);
 }
 
 void SentrySubsystemDesktop::RemoveUser()
@@ -301,12 +487,9 @@ void SentrySubsystemDesktop::RemoveUser()
 	crashReporter->RemoveUser();
 }
 
-void SentrySubsystemDesktop::ConfigureScope(const FConfigureScopeDelegate& onConfigureScope)
+void SentrySubsystemDesktop::ConfigureScope(const FSentryScopeDelegate& onConfigureScope)
 {
-	USentryScope* Scope = NewObject<USentryScope>();
-	Scope->InitWithNativeImpl(GetCurrentScope());
-
-	onConfigureScope.ExecuteIfBound(Scope);
+	onConfigureScope.ExecuteIfBound(GetCurrentScope());
 }
 
 void SentrySubsystemDesktop::SetContext(const FString& key, const TMap<FString, FString>& values)
@@ -345,33 +528,75 @@ void SentrySubsystemDesktop::EndSession()
 	sentry_end_session();
 }
 
-USentryTransaction* SentrySubsystemDesktop::StartTransaction(const FString& name, const FString& operation)
+TSharedPtr<ISentryTransaction> SentrySubsystemDesktop::StartTransaction(const FString& name, const FString& operation)
 {
 	sentry_transaction_context_t* transactionContext = sentry_transaction_context_new(TCHAR_TO_ANSI(*name), TCHAR_TO_ANSI(*operation));
 
 	sentry_transaction_t* nativeTransaction = sentry_transaction_start(transactionContext, sentry_value_new_null());
 
-	return SentryConvertorsDesktop::SentryTransactionToUnreal(nativeTransaction);
+	return MakeShareable(new SentryTransactionDesktop(nativeTransaction));
 }
 
-USentryTransaction* SentrySubsystemDesktop::StartTransactionWithContext(USentryTransactionContext* context)
+TSharedPtr<ISentryTransaction> SentrySubsystemDesktop::StartTransactionWithContext(TSharedPtr<ISentryTransactionContext> context)
 {
-	TSharedPtr<SentryTransactionContextDesktop> transactionContextDesktop = StaticCastSharedPtr<SentryTransactionContextDesktop>(context->GetNativeImpl());
+	TSharedPtr<SentryTransactionContextDesktop> transactionContextDesktop = StaticCastSharedPtr<SentryTransactionContextDesktop>(context);
 
 	sentry_transaction_t* nativeTransaction = sentry_transaction_start(transactionContextDesktop->GetNativeObject(), sentry_value_new_null());
 
-	return SentryConvertorsDesktop::SentryTransactionToUnreal(nativeTransaction);
+	return MakeShareable(new SentryTransactionDesktop(nativeTransaction));
 }
 
-USentryTransaction* SentrySubsystemDesktop::StartTransactionWithContextAndOptions(USentryTransactionContext* context, const TMap<FString, FString>& options)
+TSharedPtr<ISentryTransaction> SentrySubsystemDesktop::StartTransactionWithContextAndTimestamp(TSharedPtr<ISentryTransactionContext> context, int64 timestamp)
+{
+	TSharedPtr<SentryTransactionContextDesktop> transactionContextDesktop = StaticCastSharedPtr<SentryTransactionContextDesktop>(context);
+
+	sentry_transaction_t* nativeTransaction = sentry_transaction_start_ts(transactionContextDesktop->GetNativeObject(), sentry_value_new_null(), timestamp);
+
+	return MakeShareable(new SentryTransactionDesktop(nativeTransaction));
+}
+
+TSharedPtr<ISentryTransaction> SentrySubsystemDesktop::StartTransactionWithContextAndOptions(TSharedPtr<ISentryTransactionContext> context, const TMap<FString, FString>& options)
 {
 	UE_LOG(LogSentrySdk, Log, TEXT("Transaction options currently not supported on desktop."));
 	return StartTransactionWithContext(context);
 }
 
+TSharedPtr<ISentryTransactionContext> SentrySubsystemDesktop::ContinueTrace(const FString& sentryTrace, const TArray<FString>& baggageHeaders)
+{
+	sentry_transaction_context_t* nativeTransactionContext = sentry_transaction_context_new("<unlabeled transaction>", "default");
+	sentry_transaction_context_update_from_header(nativeTransactionContext, "sentry-trace", TCHAR_TO_ANSI(*sentryTrace));
+
+	// currently `sentry-native` doesn't have API for `sentry_transaction_context_t` to set `baggageHeaders`
+
+	TSharedPtr<SentryTransactionContextDesktop> transactionContextDesktop = MakeShareable(new SentryTransactionContextDesktop(nativeTransactionContext));
+
+	return transactionContextDesktop;
+}
+
 USentryBeforeSendHandler* SentrySubsystemDesktop::GetBeforeSendHandler()
 {
 	return beforeSend;
+}
+
+void SentrySubsystemDesktop::TryCaptureScreenshot() const
+{
+	if(!isScreenshotAttachmentEnabled)
+	{
+		UE_LOG(LogSentrySdk, Log, TEXT("Screenshot attachment is disabled in plugin settings."));
+		return;
+	}
+
+	SentryScreenshotUtils::CaptureScreenshot(GetScreenshotPath());
+}
+
+FString SentrySubsystemDesktop::GetGpuDumpBackupPath() const
+{
+	static const FString DateTimeString = FDateTime::Now().ToString();
+
+	const FString GpuDumpPath = FPaths::Combine(GetDatabasePath(), TEXT("gpudumps"), *FString::Printf(TEXT("UEAftermath-%s.nv-gpudmp"), *DateTimeString));;
+	const FString GpuDumpFullPath = FPaths::ConvertRelativePathToFull(GpuDumpPath);
+
+	return GpuDumpFullPath;
 }
 
 TSharedPtr<SentryScopeDesktop> SentrySubsystemDesktop::GetCurrentScope()
@@ -401,10 +626,18 @@ FString SentrySubsystemDesktop::GetHandlerPath() const
 
 FString SentrySubsystemDesktop::GetDatabasePath() const
 {
-	const FString DatabasePath = FPaths::Combine(FPaths::ProjectDir(), TEXT(".sentry-native"));
+	const FString DatabasePath = FPaths::Combine(databaseParentPath, TEXT(".sentry-native"));
 	const FString DatabaseFullPath = FPaths::ConvertRelativePathToFull(DatabasePath);
 
 	return DatabaseFullPath;
+}
+
+FString SentrySubsystemDesktop::GetScreenshotPath() const
+{
+	const FString ScreenshotPath = FPaths::Combine(GetDatabasePath(), TEXT("screenshots"), TEXT("crash_screenshot.png"));
+	const FString ScreenshotFullPath = FPaths::ConvertRelativePathToFull(ScreenshotPath);
+
+	return ScreenshotFullPath;
 }
 
 #endif

@@ -12,7 +12,7 @@ class SentryEventDesktop : public ISentryEvent
 {
 public:
 	SentryEventDesktop();
-	SentryEventDesktop(sentry_value_t event);
+	SentryEventDesktop(sentry_value_t event, bool isCrash = false);
 	virtual ~SentryEventDesktop() override;
 
 	sentry_value_t GetNativeObject();
@@ -22,9 +22,12 @@ public:
 	virtual void SetLevel(ESentryLevel level) override;
 	virtual ESentryLevel GetLevel() const override;
 	virtual bool IsCrash() const override;
+	virtual bool IsAnr() const override;
 
 private:
 	sentry_value_t EventDesktop;
+
+	bool IsCrashEvent;
 };
 
 #endif
