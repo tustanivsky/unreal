@@ -53,9 +53,13 @@ void ASentryTowerTurret::Shoot(AActor* TargetActor, const FVector& TargetLocatio
 	FVector SpawnLocation = ProjectileSocket->GetComponentLocation();
 	FRotator SpawnRotation = TurretWeapon->GetComponentRotation();
 
-	auto Projectile = GetWorld()->SpawnActor(ProjectileType, &SpawnLocation, &SpawnRotation);
+	auto Projectile = 
+		Cast<ASentryTowerProjectile>(GetWorld()->SpawnActor(ProjectileType, &SpawnLocation, &SpawnRotation));
+	
+	Projectile->TargetToFollow = TargetActor;
+	Projectile->TargetStationary = TargetLocation;
 
-	Cast<ASentryTowerProjectile>(Projectile)->Init(TargetActor, TargetLocation);
+	Projectile->Init();
 
 	UGameplayStatics::PlaySound2D(GetWorld(), ShootSound);
 }

@@ -17,21 +17,18 @@ ASentryTowerProjectile::ASentryTowerProjectile()
 	RootComponent = Body;
 }
 
-void ASentryTowerProjectile::Init(AActor* TargetActor, const FVector& TargetLocation)
+void ASentryTowerProjectile::Init()
 {
 	// Projectile follows the `TargetActor` enemy while it's moving if one was under cursor on shooting event
 	// If `TargetActor` enemy dies before projectile reached it then the movement continues in last know direction
 	// If there was no `TargetActor` enemy specified then the projectile simply moves to a `TargetLocation` point on the ground
 
-	TargetToFollow = TargetActor;
 	if (TargetToFollow != nullptr)
 	{
 		TargetToFollow->OnDestroyed.AddDynamic(this, &ASentryTowerProjectile::OnTargetDestroyed);
 	}
 
-	TargetStationary = TargetLocation;
-
-	Direction = (TargetLocation - GetActorLocation()).GetSafeNormal();
+	Direction = (TargetStationary - GetActorLocation()).GetSafeNormal();
 
 	SetActorTickEnabled(true);
 }
