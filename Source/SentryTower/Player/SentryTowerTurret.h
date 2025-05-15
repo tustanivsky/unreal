@@ -36,6 +36,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<ASentryTowerProjectile> ProjectileType;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float RotationSpped = 15.0f;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

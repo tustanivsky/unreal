@@ -6,8 +6,10 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 #include "Sound/SoundBase.h"
 
 ASentryTowerPawn::ASentryTowerPawn()
@@ -38,6 +40,15 @@ ASentryTowerPawn::ASentryTowerPawn()
 
 	Turret = CreateDefaultSubobject<UChildActorComponent>(TEXT("Turret"));
 	Turret->SetupAttachment(TowerTop, FName("TopSocket"));
+
+	DetectionSphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("DetectionSphere"));
+	DetectionSphereComponent->SetupAttachment(RootComponent);
+	DetectionSphereComponent->SetSphereRadius(1000.0f);
+	DetectionSphereComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	DetectionSphereComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	DetectionSphereComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	DetectionSphereComponent->OnComponentBeginOverlap.AddDynamic(this, &ASentryTowerPawn::OnEnemyEnterRange);
+	DetectionSphereComponent->OnComponentEndOverlap.AddDynamic(this, &ASentryTowerPawn::OnEnemyExitRange);
 }
 
 void ASentryTowerPawn::RotateTurret(const FVector& Target)
@@ -60,6 +71,49 @@ void ASentryTowerPawn::SetProjectileType(TSubclassOf<ASentryTowerProjectile> Pro
 	}
 
 	TurretActor->ProjectileType = ProjectileType;
+}
+
+void ASentryTowerPawn::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	ASentryTowerEnemyBase* Enemy = Cast<ASentryTowerEnemyBase>(OtherActor);
+	if (Enemy && !EnemiesInRange.Contains(Enemy))
+	{
+		EnemiesInRange.Add(Enemy);
+	}
+}
+
+void ASentryTowerPawn::OnEnemyExitRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex)
+{
+	ASentryTowerEnemyBase* Enemy = Cast<ASentryTowerEnemyBase>(OtherActor);
+	if (Enemy)
+	{
+		EnemiesInRange.Remove(Enemy);
+	}
+}
+
+ASentryTowerEnemyBase* ASentryTowerPawn::GetClosestEnemy()
+{
+	ASentryTowerEnemyBase* Closest = nullptr;
+	float MinDistSq = FLT_MAX;
+
+	for (ASentryTowerEnemyBase* Enemy : EnemiesInRange)
+	{
+		if (!IsValid(Enemy))
+		{
+			continue;
+		}
+
+		float DistSq = FVector::DistSquared(GetActorLocation(), Enemy->GetActorLocation());
+		if (DistSq < MinDistSq)
+		{
+			MinDistSq = DistSq;
+			Closest = Enemy;
+		}
+	}
+
+	return Closest;
 }
 
 void ASentryTowerPawn::BeginPlay()
@@ -107,4 +161,3 @@ void ASentryTowerPawn::GrantExperience(int32 Exp)
 		OnTowerLevelUp.Broadcast();
 	}
 }
-

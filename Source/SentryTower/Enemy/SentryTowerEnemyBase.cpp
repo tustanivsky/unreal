@@ -3,6 +3,7 @@
 #include "SentryTowerEnemyBase.h"
 
 #include "AIController.h"
+#include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "Kismet/GameplayStatics.h"
@@ -68,13 +69,21 @@ void ASentryTowerEnemyBase::OnBeginOverlap(UPrimitiveComponent* OverlappedCompon
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	auto Target = Cast<ASentryTowerPawn>(OtherActor);
-	if (Target != nullptr)
+	if (!Target)
 	{
-		UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
-		UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
-		UGameplayStatics::PlaySound2D(GetWorld(), ExplosionSound);
-		Destroy();
+		return;
 	}
+
+	if (Cast<USphereComponent>(OtherComp))
+	{
+		// Got into tower's shooting range
+		return;
+	}
+
+	UGameplayStatics::ApplyDamage(Target, EnemyDamage, GetController(), this, nullptr);
+	UGameplayStatics::SpawnEmitterAtLocation(this, ParticleEffect, GetActorLocation());
+	UGameplayStatics::PlaySound2D(GetWorld(), ExplosionSound);
+	Destroy();
 }
 
 void ASentryTowerEnemyBase::Tick(float DeltaTime)

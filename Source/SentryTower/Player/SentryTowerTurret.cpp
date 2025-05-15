@@ -28,8 +28,12 @@ void ASentryTowerTurret::RotateTurret(const FVector& Target)
 	FVector Direction = Target - GetActorLocation();
 	Direction = Direction.GetSafeNormal();
 
-	FRotator NewRotation = UKismetMathLibrary::MakeRotFromX(Direction);
-	NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -40.0f, 0.0f);
+	FRotator TargetRotation = UKismetMathLibrary::MakeRotFromX(Direction);
+	TargetRotation.Pitch = FMath::Clamp(TargetRotation.Pitch, -40.0f, 0.0f);
+
+	FRotator CurrentRotation = TurretWeapon->GetComponentRotation();
+
+	FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpped);
 
 	TurretWeapon->SetWorldRotation(NewRotation);
 }
@@ -55,7 +59,7 @@ void ASentryTowerTurret::Shoot(AActor* TargetActor, const FVector& TargetLocatio
 
 	auto Projectile = 
 		Cast<ASentryTowerProjectile>(GetWorld()->SpawnActor(ProjectileType, &SpawnLocation, &SpawnRotation));
-	
+
 	Projectile->TargetToFollow = TargetActor;
 	Projectile->TargetStationary = TargetLocation;
 

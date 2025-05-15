@@ -24,7 +24,21 @@ void ASentryTowerPlayerController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	CursorTrace();
+	auto TowerPawn = Cast<ASentryTowerPawn>(GetPawn());
+	if (!TowerPawn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerPlayerController: Can't get tower pawn!"));
+		return;
+	}
+
+	auto Target = TowerPawn->GetClosestEnemy();
+	if (!Target)
+	{
+		// No enemies in range
+		return;
+	}
+
+	TowerPawn->RotateTurret(Target->GetActorLocation());
 }
 
 void ASentryTowerPlayerController::SetupInputComponent()
@@ -33,12 +47,6 @@ void ASentryTowerPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// Setup mouse input events
-		EnhancedInputComponent->BindAction(ShootClickAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnShootStarted);
-
-		// Setup touch input events
-		EnhancedInputComponent->BindAction(ShootTouchAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnShootStarted);
-
 		// Setup keyboard events
 		EnhancedInputComponent->BindAction(OpenMenuAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnOpenMenuStarted);
 	}
