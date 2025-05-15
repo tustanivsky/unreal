@@ -23,22 +23,6 @@ void ASentryTowerPlayerController::BeginPlay()
 void ASentryTowerPlayerController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
-	auto TowerPawn = Cast<ASentryTowerPawn>(GetPawn());
-	if (!TowerPawn)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerPlayerController: Can't get tower pawn!"));
-		return;
-	}
-
-	auto Target = TowerPawn->GetClosestEnemy();
-	if (!Target)
-	{
-		// No enemies in range
-		return;
-	}
-
-	TowerPawn->RotateTurret(Target->GetActorLocation());
 }
 
 void ASentryTowerPlayerController::SetupInputComponent()
@@ -56,40 +40,9 @@ void ASentryTowerPlayerController::SetupInputComponent()
 	}
 }
 
-void ASentryTowerPlayerController::OnShootStarted()
-{
-	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shoot!"));
-
-	if (AllowShooting)
-	{
-		FHitResult CursorHit;
-		GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
-
-		OnShoot.Broadcast(Cast<ASentryTowerEnemyBase>(CursorHit.GetActor()), CursorHit.Location);
-	}
-}
-
 void ASentryTowerPlayerController::OnOpenMenuStarted()
 {
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Open menu!"));
 
 	OnOpenMenu.Broadcast();
-}
-
-void ASentryTowerPlayerController::CursorTrace()
-{
-	auto TowerPawn = Cast<ASentryTowerPawn>(GetPawn());
-	if (!TowerPawn)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerPlayerController: Can't get tower pawn!"));
-		return;
-	}
-
-	FHitResult CursorHit;
-	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
-
-	// check if tower isn't aiming at itself
-	AllowShooting = !Cast<ASentryTowerPawn>(CursorHit.GetActor()) && !Cast<ASentryTowerTurret>(CursorHit.GetActor());
-
-	TowerPawn->RotateTurret(CursorHit.Location);
 }

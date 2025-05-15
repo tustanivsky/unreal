@@ -30,10 +30,7 @@ protected:
 	virtual void SetupInputComponent() override;
 
 	/** Input handlers. */
-	void OnShootStarted();
 	void OnOpenMenuStarted();
-
-	void CursorTrace();
 
 public:
 
@@ -43,9 +40,6 @@ public:
 	/** Open game menu input action (touch) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* OpenMenuAction;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnShootDelegate OnShoot;
 
 	UPROPERTY(BlueprintAssignable)
 	FOnOpenMenuDelegate OnOpenMenu;

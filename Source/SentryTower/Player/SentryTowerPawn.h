@@ -32,9 +32,6 @@ public:
 	ASentryTowerPawn();
 
 	UFUNCTION(BlueprintCallable)
-	void RotateTurret(const FVector& RotateTo);
-
-	UFUNCTION(BlueprintCallable)
 	void SetProjectileType(TSubclassOf<ASentryTowerProjectile> ProjectileType);
 
 	UFUNCTION()

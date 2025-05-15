@@ -51,17 +51,6 @@ ASentryTowerPawn::ASentryTowerPawn()
 	DetectionSphereComponent->OnComponentEndOverlap.AddDynamic(this, &ASentryTowerPawn::OnEnemyExitRange);
 }
 
-void ASentryTowerPawn::RotateTurret(const FVector& Target)
-{
-	auto TurretActor = Cast<ASentryTowerTurret>(Turret->GetChildActor());
-	if (!TurretActor)
-	{
-		return;
-	}
-
-	TurretActor->RotateTurret(Target);
-}
-
 void ASentryTowerPawn::SetProjectileType(TSubclassOf<ASentryTowerProjectile> ProjectileType)
 {
 	auto TurretActor = Cast<ASentryTowerTurret>(Turret->GetChildActor());
@@ -141,6 +130,26 @@ float ASentryTowerPawn::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 void ASentryTowerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	auto Target = GetClosestEnemy();
+	if (!Target)
+	{
+		// No enemies in range
+		return;
+	}
+
+	auto TurretActor = Cast<ASentryTowerTurret>(Turret->GetChildActor());
+	if (!TurretActor)
+	{
+		return;
+	}
+
+	TurretActor->RotateTurret(Target->GetActorLocation());
+
+	if (TurretActor->IsFacingTarget(Target->GetActorLocation(), 10.0))
+	{
+		TurretActor->Shoot(Target, Target->GetActorLocation());
+	}
 }
 
 void ASentryTowerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

@@ -2,7 +2,6 @@
 
 #include "SentryTowerTurret.h"
 
-#include "SentryTowerPlayerController.h"
 #include "SentryTowerProjectile.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -33,27 +32,37 @@ void ASentryTowerTurret::RotateTurret(const FVector& Target)
 
 	FRotator CurrentRotation = TurretWeapon->GetComponentRotation();
 
-	FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpped);
+	FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
 
 	TurretWeapon->SetWorldRotation(NewRotation);
+}
+
+bool ASentryTowerTurret::IsFacingTarget(const FVector& Target, float Tolerance) const
+{
+	FVector TargetDirection = (Target - GetActorLocation()).GetSafeNormal();
+	FVector CurrentDirection = TurretWeapon->GetForwardVector();
+
+	float Dot = FVector::DotProduct(TargetDirection, CurrentDirection);
+	float Angle = FMath::RadiansToDegrees(FMath::Acos(Dot));
+
+	return Angle <= Tolerance;
 }
 
 void ASentryTowerTurret::BeginPlay()
 {
 	Super::BeginPlay();
-
-	auto PlayerController = Cast<ASentryTowerPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
-	if (!PlayerController)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ASentryTowerTurret: Failed to get player controller!"));
-		return;
-	}
-
-	PlayerController->OnShoot.AddDynamic(this, &ASentryTowerTurret::Shoot);
 }
 
 void ASentryTowerTurret::Shoot(AActor* TargetActor, const FVector& TargetLocation)
 {
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	if (CurrentTime - LastShotTime < AttackCooldown)
+	{
+		return;
+	}
+
+	LastShotTime = CurrentTime;
+
 	FVector SpawnLocation = ProjectileSocket->GetComponentLocation();
 	FRotator SpawnRotation = TurretWeapon->GetComponentRotation();
 
