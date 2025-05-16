@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "HeavyCompute/Public/HeavyCompute.h"
+#include "SentryShaders/Public/SentryShaders.h"
 #include "MeshPassProcessor.h"
 #include "RHICommandList.h"
 #include "RenderGraphBuilder.h"

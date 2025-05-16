@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FHeavyCompute : public IModuleInterface
+class FSentryShaders : public IModuleInterface
 {
 public:
 

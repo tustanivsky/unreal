@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "HeavyCompute.h"
+#include "SentryShaders.h"
 
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -14,15 +14,15 @@
 
 #define LOCTEXT_NAMESPACE "FHeavyCompute"
 
-void FHeavyCompute::StartupModule()
+void FSentryShaders::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 
-	FString PluginShaderDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Shaders/HeavyCompute/Private"));
-	AddShaderSourceDirectoryMapping(TEXT("/HeavyComputeShaders"), PluginShaderDir);
+	FString ProjectShaderDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Shaders/SentryShaders/Private"));
+	AddShaderSourceDirectoryMapping(TEXT("/SentryShaders"), ProjectShaderDir);
 }
 
-void FHeavyCompute::ShutdownModule()
+void FSentryShaders::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
@@ -30,4 +30,4 @@ void FHeavyCompute::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FHeavyCompute, HeavyCompute)
+IMPLEMENT_MODULE(FSentryShaders, SentryShaders)

@@ -1,5 +1,5 @@
 #include "HeavyComputeLoop.h"
-#include "HeavyCompute/Public/HeavyComputeLoop/HeavyComputeLoop.h"
+#include "SentryShaders/Public/HeavyComputeLoop/HeavyComputeLoop.h"
 #include "PixelShaderUtils.h"
 #include "MeshPassProcessor.inl"
 #include "StaticMeshResources.h"
@@ -17,7 +17,7 @@ DECLARE_STATS_GROUP(TEXT("HeavyComputeLoop"), STATGROUP_HeavyComputeLoop, STATCA
 DECLARE_CYCLE_STAT(TEXT("HeavyComputeLoop Execute"), STAT_HeavyComputeLoop_Execute, STATGROUP_HeavyComputeLoop);
 
 // This class carries our parameter declarations and acts as the bridge between cpp and HLSL.
-class HEAVYCOMPUTE_API FHeavyComputeLoop: public FGlobalShader
+class SENTRYSHADERS_API FHeavyComputeLoop: public FGlobalShader
 {
 public:
 	
@@ -97,7 +97,7 @@ private:
 
 // This will tell the engine to create the shader and where the shader entry point is.
 //                            ShaderType                            ShaderPath                     Shader function name    Type
-IMPLEMENT_GLOBAL_SHADER(FHeavyComputeLoop, "/HeavyComputeShaders/HeavyComputeLoop/HeavyComputeLoop.usf", "HeavyComputeLoop", SF_Compute);
+IMPLEMENT_GLOBAL_SHADER(FHeavyComputeLoop, "/SentryShaders/HeavyComputeLoop/HeavyComputeLoop.usf", "HeavyComputeLoop", SF_Compute);
 
 void FHeavyComputeLoopInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FHeavyComputeLoopDispatchParams Params, TFunction<void(int OutputVal)> AsyncCallback) {
 	FRDGBuilder GraphBuilder(RHICmdList);

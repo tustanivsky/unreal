@@ -10,7 +10,7 @@
 			"LoadingPhase": "Default"
 		},
 		{
-			"Name": "HeavyCompute",
+			"Name": "SentryShaders",
 			"Type": "Runtime",
 			"LoadingPhase": "PostConfigInit"
 		}

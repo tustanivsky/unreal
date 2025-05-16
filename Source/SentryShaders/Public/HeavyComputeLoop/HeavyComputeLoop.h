@@ -8,7 +8,7 @@
 
 #include "HeavyComputeLoop.generated.h"
 
-struct HEAVYCOMPUTE_API FHeavyComputeLoopDispatchParams
+struct SENTRYSHADERS_API FHeavyComputeLoopDispatchParams
 {
 	int X;
 	int Y;
@@ -29,7 +29,7 @@ struct HEAVYCOMPUTE_API FHeavyComputeLoopDispatchParams
 };
 
 // This is a public interface that we define so outside code can invoke our compute shader.
-class HEAVYCOMPUTE_API FHeavyComputeLoopInterface {
+class SENTRYSHADERS_API FHeavyComputeLoopInterface {
 public:
 	// Executes this shader on the render thread
 	static void DispatchRenderThread(
@@ -71,7 +71,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHeavyComputeLoopLibrary_AsyncExec
 
 
 UCLASS() // Change the _API to match your project
-class HEAVYCOMPUTE_API UHeavyComputeLoopLibrary_AsyncExecution : public UBlueprintAsyncActionBase
+class SENTRYSHADERS_API UHeavyComputeLoopLibrary_AsyncExecution : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
 

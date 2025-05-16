@@ -1,17 +1,17 @@
 using UnrealBuildTool; 
 
-public class HeavyCompute: ModuleRules 
+public class SentryShaders: ModuleRules 
 
 { 
 
-	public HeavyCompute(ReadOnlyTargetRules Target) : base(Target) 
+	public SentryShaders(ReadOnlyTargetRules Target) : base(Target) 
 
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		
 		PrivateIncludePaths.AddRange(new string[] 
 		{
-			"HeavyCompute/Private"
+			"SentryShaders/Private"
 		});
 		if (Target.bBuildEditor == true)
 		{
