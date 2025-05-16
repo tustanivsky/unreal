@@ -17,6 +17,11 @@ struct FSentrySortFileByDatePredicate
 	}
 };
 
+FString SentryFileUtils::GetGameLogName()
+{
+	return FPaths::GetCleanFilename(FGenericPlatformOutputDevices::GetAbsoluteLogFilename());
+}
+
 FString SentryFileUtils::GetGameLogPath()
 {
 	return IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*FGenericPlatformOutputDevices::GetAbsoluteLogFilename());
@@ -35,13 +40,12 @@ FString SentryFileUtils::GetGameLogBackupPath()
 
 	for (int i = 0; i < GameLogBackupFiles.Num(); ++i)
 	{
-		FString GameLogFullPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*(FPaths::ProjectLogDir() / GameLogBackupFiles[i]));
-		GameLogBackupFiles[i] = GameLogFullPath;
+		GameLogBackupFiles[i] = FPaths::ProjectLogDir() / GameLogBackupFiles[i];
 	}
 
 	GameLogBackupFiles.Sort(FSentrySortFileByDatePredicate());
 
-	return GameLogBackupFiles[0];
+	return IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*GameLogBackupFiles[0]);
 }
 
 FString SentryFileUtils::GetGpuDumpPath()

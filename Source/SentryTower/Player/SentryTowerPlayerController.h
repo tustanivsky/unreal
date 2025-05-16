@@ -30,33 +30,27 @@ protected:
 	virtual void SetupInputComponent() override;
 
 	/** Input handlers. */
-	void OnShootStarted();
 	void OnOpenMenuStarted();
-
-	void CursorTrace();
+	void OnTriggerGpuCrashStarted();
 
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
 
-	/** Tower shoot input action (click) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
-	UInputAction* ShootClickAction;
-
-	/** Tower shoot input action (touch) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
-	UInputAction* ShootTouchAction;
-
 	/** Open game menu input action (touch) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* OpenMenuAction;
 
-	UPROPERTY(BlueprintAssignable)
-	FOnShootDelegate OnShoot;
+	/**Trigger GPU crash input action (touch) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* TriggerGpuCrashAction;
 
 	UPROPERTY(BlueprintAssignable)
 	FOnOpenMenuDelegate OnOpenMenu;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnOpenMenuDelegate OnTriggerGpuCrash;
 
 private:
 	bool AllowShooting;

@@ -6,9 +6,11 @@
 #include "GameFramework/Pawn.h"
 #include "SentryTowerPawn.generated.h"
 
+class ASentryTowerEnemyBase;
 class UCapsuleComponent;
 class UCameraComponent;
 class UCameraShakeBase;
+class USphereComponent;
 class USoundBase;
 class USpringArmComponent;
 class ASentryTowerTurret;
@@ -30,10 +32,17 @@ public:
 	ASentryTowerPawn();
 
 	UFUNCTION(BlueprintCallable)
-	void RotateTurret(const FVector& RotateTo);
-
-	UFUNCTION(BlueprintCallable)
 	void SetProjectileType(TSubclassOf<ASentryTowerProjectile> ProjectileType);
+
+	UFUNCTION()
+	void OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnEnemyExitRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex);
+
+	ASentryTowerEnemyBase* GetClosestEnemy();
 
 protected:
 	// Called when the game starts or when spawned
@@ -73,6 +82,9 @@ public:
 	TObjectPtr<USoundBase> DamageSound;
 
 	UPROPERTY(EditAnywhere)
+	USphereComponent* DetectionSphereComponent;
+
+	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCameraShakeBase> CameraShake;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -98,4 +110,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnTowerDiesDelegate OnTowerLevelUp;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<ASentryTowerEnemyBase*> EnemiesInRange;
 };

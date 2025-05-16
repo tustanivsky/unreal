@@ -30,7 +30,7 @@ extern "C" {
 #        define SENTRY_SDK_NAME "sentry.native"
 #    endif
 #endif
-#define SENTRY_SDK_VERSION "0.7.17"
+#define SENTRY_SDK_VERSION "0.8.4"
 #define SENTRY_SDK_USER_AGENT SENTRY_SDK_NAME "/" SENTRY_SDK_VERSION
 
 /* common platform detection */
@@ -56,6 +56,8 @@ extern "C" {
 /* IBM i PASE is also counted as AIX */
 #    define SENTRY_PLATFORM_AIX
 #    define SENTRY_PLATFORM_UNIX
+#elif defined(__NX__)
+#    define SENTRY_PLATFORM_NX
 #else
 #    error unsupported platform
 #endif
@@ -845,11 +847,14 @@ SENTRY_API void sentry_options_set_before_send(
  * `sentry_value_decref` on the provided event, and return a
  * `sentry_value_new_null()` instead.
  *
- * Only the `inproc` backend currently fills the passed-in event with useful
- * data and processes any modifications to the return value. Since both
- * `breakpad` and `crashpad` use minidumps to capture the crash state, the
- * passed-in event is empty when using these backends, and they ignore any
- * changes to the return value.
+ * Only the `inproc` backend currently fills the passed-in event with crash
+ * meta-data. Since both `breakpad` and `crashpad` use minidumps to capture the
+ * crash state, the passed-in event is empty when using these backends. Changes
+ * to the event from inside the hooks will be passed along, but in the case of
+ * the minidump backends these changes might get overwritten during server-side
+ * ingestion and processing. This primarily affects the exception payloads which
+ * are auto-generated from the minidump content. See
+ * https://github.com/getsentry/sentry-native/issues/1147 for details.
  *
  * If you set this callback in the options, it prevents a concurrently enabled
  * `before_send` callback from being invoked in the crash case. This allows for
@@ -1069,7 +1074,8 @@ SENTRY_API const char *sentry_options_get_user_agent(
     const sentry_options_t *opts);
 
 /**
- * Enables or disables debug printing mode.
+ * Enables or disables debug printing mode. To change the log level from the
+ * default DEBUG level, use `sentry_options_set_logger_level`.
  */
 SENTRY_API void sentry_options_set_debug(sentry_options_t *opts, int debug);
 
@@ -1077,6 +1083,12 @@ SENTRY_API void sentry_options_set_debug(sentry_options_t *opts, int debug);
  * Returns the current value of the debug flag.
  */
 SENTRY_API int sentry_options_get_debug(const sentry_options_t *opts);
+
+/**
+ * Sets the level of the logger. Has no effect if `debug` is not set to true.
+ */
+SENTRY_API void sentry_options_set_logger_level(
+    sentry_options_t *opts, sentry_level_t level);
 
 /**
  * Sets the number of breadcrumbs being tracked and attached to events.
@@ -1175,6 +1187,33 @@ SENTRY_API void sentry_options_add_attachment_n(
     sentry_options_t *opts, const char *path, size_t path_len);
 
 /**
+ * Adds a new view hierarchy attachment to be sent along.
+ *
+ * The primary use-case is for downstream SDKs (like sentry-godot). The
+ * view-hierarchy.json file should follow the representation defined in RFC#33
+ * https://github.com/getsentry/rfcs/blob/main/text/0033-view-hierarchy.md
+ *
+ * `path` is assumed to be in platform-specific filesystem path encoding.
+ * API Users on windows are encouraged to use
+ * `sentry_options_add_view_hierarchyw` instead.
+ */
+SENTRY_API void sentry_options_add_view_hierarchy(
+    sentry_options_t *opts, const char *path);
+SENTRY_API void sentry_options_add_view_hierarchy_n(
+    sentry_options_t *opts, const char *path, size_t path_len);
+
+/**
+ * Enables or disables attaching screenshots to fatal error events. Disabled by
+ * default.
+ *
+ * This feature is currently supported by all backends on Windows. Only the
+ * `crashpad` backend can capture screenshots of fast-fail crashes that bypass
+ * SEH (structured exception handling).
+ */
+SENTRY_EXPERIMENTAL_API void sentry_options_set_attach_screenshot(
+    sentry_options_t *opts, int val);
+
+/**
  * Sets the path to the crashpad handler if the crashpad backend is used.
  *
  * The path defaults to the `crashpad_handler`/`crashpad_handler.exe`
@@ -1237,6 +1276,14 @@ SENTRY_API void sentry_options_add_attachmentw_n(
     sentry_options_t *opts, const wchar_t *path, size_t path_len);
 
 /**
+ * Wide char version of `sentry_options_add_view_hierarchy`.
+ */
+SENTRY_API void sentry_options_add_view_hierarchyw(
+    sentry_options_t *opts, const wchar_t *path);
+SENTRY_API void sentry_options_add_view_hierarchyw_n(
+    sentry_options_t *opts, const wchar_t *path, size_t path_len);
+
+/**
  * Wide char version of `sentry_options_set_handler_path`.
  */
 SENTRY_API void sentry_options_set_handler_pathw(
@@ -1251,6 +1298,30 @@ SENTRY_API void sentry_options_set_database_pathw(
     sentry_options_t *opts, const wchar_t *path);
 SENTRY_API void sentry_options_set_database_pathw_n(
     sentry_options_t *opts, const wchar_t *path, size_t path_len);
+
+/**
+ * Allows users to define a thread stack guarantee manually on each thread. This
+ * is necessary for crash handlers to run after a thread crashed due to a
+ * stack-overflow on Windows.
+ *
+ * By default the Native SDK automatically sets this value for you, but in some
+ * cases it might be preferable to set these values yourself for each thread you
+ * manage. Ensure to disable the `SENTRY_THREAD_STACK_GUARANTEE_AUTO_INIT` CMake
+ * option when building the Native SDK to have full control over each threads
+ * stack guarantee.
+ *
+ * The input parameter specifies a size in bytes and should be a multiple of the
+ * page size. Returns `1` if the thread stack guarantee was set successfully and
+ * `0` otherwise.
+ *
+ * Note: when we auto-assign the stack guarantee we check against the thread's
+ * stack reserve (see `SENTRY_THREAD_STACK_GUARANTEE_FACTOR` in the
+ * `README.md`). This check is not applied when you call this function.
+ * Note: this function depends on the SDK being initialized when doing static
+ * builds or in any configuration on Xbox.
+ */
+SENTRY_EXPERIMENTAL_API int sentry_set_thread_stack_guarantee(
+    uint32_t stack_guarantee_in_bytes);
 #endif
 
 /**
@@ -1265,8 +1336,17 @@ SENTRY_API void sentry_options_set_system_crash_reporter_enabled(
     sentry_options_t *opts, int enabled);
 
 /**
- * Sets the maximum time (in milliseconds) to wait for the asynchronous tasks to
- * end on shutdown, before attempting a forced termination.
+ * Enables a wait for the crash report upload to be finished before shutting
+ * down. This is disabled by default.
+ *
+ * This setting only has an effect when using the `crashpad` backend on Linux.
+ */
+SENTRY_API void sentry_options_set_crashpad_wait_for_upload(
+    sentry_options_t *opts, int wait_for_upload);
+
+/**
+ * Sets the maximum time (in milliseconds) to wait for the asynchronous
+ * tasks to end on shutdown, before attempting a forced termination.
  */
 SENTRY_API void sentry_options_set_shutdown_timeout(
     sentry_options_t *opts, uint64_t shutdown_timeout);
@@ -1400,19 +1480,38 @@ SENTRY_API sentry_uuid_t sentry_capture_event(sentry_value_t event);
  * Allows capturing independently created minidumps.
  *
  * This generates a fatal error event, includes the scope and attachments.
- * If the event isn't dropped by a before-send hook, the minidump is attached
+ * If a before-send hook doesn't drop the event, the minidump is attached
  * and the event is sent.
+ *
+ * Returns a nil `UUID` if capturing the minidump failed and the event-id
+ * otherwise. Uploads can fail because capturing is asynchronous, so a non-nil
+ * `UUID` is not a delivery guarantee. However, if the minidump is successfully
+ * delivered, the ID is guaranteed to be the same as the event in the Sentry UI.
+ *
+ * Note: You don't need this function if you rely on Sentry to create the
+ * minidump. This is useful when you have a minidump captured through a
+ * different mechanism, and you want Sentry to ingest it.
  */
-SENTRY_API void sentry_capture_minidump(const char *path);
-SENTRY_API void sentry_capture_minidump_n(const char *path, size_t path_len);
+SENTRY_API sentry_uuid_t sentry_capture_minidump(const char *path);
+SENTRY_API sentry_uuid_t sentry_capture_minidump_n(
+    const char *path, size_t path_len);
 
 /**
- * Captures an exception to be handled by the backend.
+ * Captures a system-native exception that you retrieve when you manually handle
+ * `POSIX` signals or `SEH` exceptions and want to keep using that handling
+ * instead of the top-level handlers in our backends. The exception is still
+ * processed as a sentry event inside the SDK, including applying scope metadata
+ * and invoking hooks.
+ *
+ * The passed in `sentry_ucontext_t` must be filled with the OS-specific
+ * exception data (as specified in the struct definition) that you retrieve
+ * from your handler.
  *
  * This is safe to be called from a crashing thread and may not return.
  *
  * Note: The `crashpad` client currently supports this only on Windows. `inproc`
- *       and `breakpad` support it on all platforms.
+ *       and `breakpad` supports it on all platforms (on macOS, the `uctx`
+ *       argument is ignored when using the `breakpad` backend).
  */
 SENTRY_EXPERIMENTAL_API void sentry_handle_exception(
     const sentry_ucontext_t *uctx);
@@ -1487,6 +1586,15 @@ SENTRY_API void sentry_set_fingerprint_n(
 SENTRY_API void sentry_remove_fingerprint(void);
 
 /**
+ * Set the trace. The primary use for this is to allow other SDKs to propagate
+ * their trace context to connect events on all layers
+ */
+SENTRY_API void sentry_set_trace(
+    const char *trace_id, const char *parent_span_id);
+SENTRY_API void sentry_set_trace_n(const char *trace_id, size_t trace_id_len,
+    const char *parent_span_id, size_t parent_span_id_len);
+
+/**
  * Sets the transaction.
  */
 SENTRY_API void sentry_set_transaction(const char *transaction);
@@ -1525,6 +1633,26 @@ SENTRY_EXPERIMENTAL_API void sentry_options_set_traces_sample_rate(
  */
 SENTRY_EXPERIMENTAL_API double sentry_options_get_traces_sample_rate(
     sentry_options_t *opts);
+
+/**
+ * A sentry Transaction Context.
+ *
+ * See Transaction Interface under
+ * https://develop.sentry.dev/sdk/performance/#new-span-and-transaction-classes
+ */
+struct sentry_transaction_context_s;
+typedef struct sentry_transaction_context_s sentry_transaction_context_t;
+typedef double (*sentry_traces_sampler_function)(
+    const sentry_transaction_context_t *transaction_ctx,
+    sentry_value_t custom_sampling_ctx, const int *parent_sampled);
+
+/**
+ * Sets the traces sampler callback. Should be a function that returns a double
+ * and takes in a sentry_transaction_context_t pointer, a sentry_value_t for
+ * a custom sampling context and an int pointer for the parent sampled flag.
+ */
+SENTRY_EXPERIMENTAL_API void sentry_options_set_traces_sampler(
+    sentry_options_t *opts, sentry_traces_sampler_function callback);
 
 #ifdef SENTRY_PLATFORM_LINUX
 
@@ -1584,15 +1712,6 @@ SENTRY_EXPERIMENTAL_API void sentry_end_session_with_status(
 /* -- Performance Monitoring/Tracing APIs -- */
 
 /**
- * A sentry Transaction Context.
- *
- * See Transaction Interface under
- * https://develop.sentry.dev/sdk/performance/#new-span-and-transaction-classes
- */
-struct sentry_transaction_context_s;
-typedef struct sentry_transaction_context_s sentry_transaction_context_t;
-
-/**
  * A sentry Transaction.
  *
  * See https://develop.sentry.dev/sdk/event-payloads/transaction/
@@ -1642,9 +1761,14 @@ sentry_transaction_context_new_n(const char *name, size_t name_len,
  * setting a name on it.
  */
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_name(
-    sentry_transaction_context_t *tx_cxt, const char *name);
+    sentry_transaction_context_t *tx_ctx, const char *name);
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_name_n(
-    sentry_transaction_context_t *tx_cxt, const char *name, size_t name_len);
+    sentry_transaction_context_t *tx_ctx, const char *name, size_t name_len);
+/**
+ * Gets the `name` of a Transaction Context.
+ */
+SENTRY_EXPERIMENTAL_API const char *sentry_transaction_context_get_name(
+    const sentry_transaction_context_t *tx_ctx);
 
 /**
  * Sets the `operation` on a Transaction Context, which will be used in the
@@ -1657,10 +1781,15 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_name_n(
  * setting an operation on it.
  */
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_operation(
-    sentry_transaction_context_t *tx_cxt, const char *operation);
+    sentry_transaction_context_t *tx_ctx, const char *operation);
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_operation_n(
-    sentry_transaction_context_t *tx_cxt, const char *operation,
+    sentry_transaction_context_t *tx_ctx, const char *operation,
     size_t operation_len);
+/**
+ * Gets the `operation` of a Transaction Context.
+ */
+SENTRY_EXPERIMENTAL_API const char *sentry_transaction_context_get_operation(
+    const sentry_transaction_context_t *tx_ctx);
 
 /**
  * Sets the `sampled` field on a Transaction Context, which will be used in the
@@ -1674,7 +1803,7 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_operation_n(
  * setting `sampled` on it.
  */
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_sampled(
-    sentry_transaction_context_t *tx_cxt, int sampled);
+    sentry_transaction_context_t *tx_ctx, int sampled);
 
 /**
  * Removes the `sampled` field on a Transaction Context, which will be used in
@@ -1686,7 +1815,7 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_set_sampled(
  * removing `sampled`.
  */
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_remove_sampled(
-    sentry_transaction_context_t *tx_cxt);
+    sentry_transaction_context_t *tx_ctx);
 
 /**
  * Update the Transaction Context with the given HTTP header key/value pair.
@@ -1697,9 +1826,9 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_remove_sampled(
  * upstream service.
  */
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_update_from_header(
-    sentry_transaction_context_t *tx_cxt, const char *key, const char *value);
+    sentry_transaction_context_t *tx_ctx, const char *key, const char *value);
 SENTRY_EXPERIMENTAL_API void sentry_transaction_context_update_from_header_n(
-    sentry_transaction_context_t *tx_cxt, const char *key, size_t key_len,
+    sentry_transaction_context_t *tx_ctx, const char *key, size_t key_len,
     const char *value, size_t value_len);
 
 /**
@@ -1708,9 +1837,7 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_update_from_header_n(
  * constructed by a user.
  *
  * The second parameter is a custom Sampling Context to be used with a Traces
- * Sampler to make a more informed sampling decision. The SDK does not currently
- * support a custom Traces Sampler and this parameter is ignored for the time
- * being but needs to be provided.
+ * Sampler to allow you to make a more informed sampling decision.
  *
  * Returns a Transaction, which is expected to be manually managed by the
  * caller. Manual management involves ensuring that `sentry_transaction_finish`
@@ -1728,6 +1855,9 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_update_from_header_n(
  * Takes ownership of `transaction_context`. A Transaction Context cannot be
  * modified or re-used after it is used to start a Transaction.
  *
+ * Takes ownership of `custom_sampling_ctx`. A Sampling Context cannot be
+ * modified or re-used after it is used to start a Transaction.
+ *
  * The returned value is not thread-safe. Users are expected to ensure that
  * appropriate locking mechanisms are implemented over the Transaction if it
  * needs to be mutated across threads. Methods operating on the Transaction will
@@ -1735,7 +1865,7 @@ SENTRY_EXPERIMENTAL_API void sentry_transaction_context_update_from_header_n(
  * the object in a thread-safe way.
  */
 SENTRY_EXPERIMENTAL_API sentry_transaction_t *sentry_transaction_start(
-    sentry_transaction_context_t *tx_cxt, sentry_value_t sampling_ctx);
+    sentry_transaction_context_t *tx_ctx, sentry_value_t custom_sampling_ctx);
 /**
  * Also starts a transaction like the regular `sentry_transaction_start`
  * function, but has an additional timestamp parameter to let the user provide
@@ -1744,7 +1874,7 @@ SENTRY_EXPERIMENTAL_API sentry_transaction_t *sentry_transaction_start(
  * The timestamp should be provided in microseconds since the Unix epoch.
  */
 SENTRY_EXPERIMENTAL_API sentry_transaction_t *sentry_transaction_start_ts(
-    sentry_transaction_context_t *tx_cxt, sentry_value_t sampling_ctx,
+    sentry_transaction_context_t *tx_ctx, sentry_value_t custom_sampling_ctx,
     uint64_t timestamp);
 
 /**
@@ -1800,7 +1930,7 @@ SENTRY_EXPERIMENTAL_API void sentry_set_span(sentry_span_t *span);
  * Starts a new Span.
  *
  * The return value of `sentry_transaction_start` should be passed in as
- * `parent`.
+ * `parent`. This value can't be null, since we don't allow for orphan spans.
  *
  * Both `operation` and `description` can be null, but it is recommended to
  * supply the former. See
@@ -1852,7 +1982,9 @@ SENTRY_EXPERIMENTAL_API sentry_span_t *sentry_transaction_start_child_ts_n(
 /**
  * Starts a new Span.
  *
- * The return value of `sentry_span_start_child` may be passed in as `parent`.
+ * The return value of either `sentry_transaction_start_child` or
+ * `sentry_span_start_child` should be passed in as `parent`. This value can't
+ * be null, since we don't allow for orphan spans.
  *
  * Both `operation` and `description` can be null, but it is recommended to
  * supply the former. See

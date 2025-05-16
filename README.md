@@ -1,7 +1,7 @@
 # Sentry Tower Defense - Built with Unreal Engine
 
 A Sentry-themed tower defence game written for Unreal Engine in C++/Blueprints featuring:
-* Non-stop shooting action!
+* Non-stop Idle shooting action!
 * 3 turret power-ups with their own unique behavior
 * 3 different enemies
 
@@ -9,7 +9,6 @@ A Sentry-themed tower defence game written for Unreal Engine in C++/Blueprints f
 
 ## Gameplay
 
-* Use mouse to aim
 * Destroy enemies to pick up XP
 * Select attack modifiers for each level
 * Survive as long as you can!
@@ -17,7 +16,7 @@ A Sentry-themed tower defence game written for Unreal Engine in C++/Blueprints f
 ## System requirements
 
 * Windows/Mac
-* Unreal Engine 5.3
+* Unreal Engine 5.5
 
 ## Third-party assets
 

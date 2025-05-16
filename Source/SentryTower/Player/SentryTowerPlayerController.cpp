@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "SentryTowerPawn.h"
 #include "SentryTowerTurret.h"
+#include "SentryShaders/HeavyComputeLoop/HeavyComputeLoop.h"
 #include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 
 void ASentryTowerPlayerController::BeginPlay()
@@ -23,8 +24,6 @@ void ASentryTowerPlayerController::BeginPlay()
 void ASentryTowerPlayerController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
-	CursorTrace();
 }
 
 void ASentryTowerPlayerController::SetupInputComponent()
@@ -33,31 +32,13 @@ void ASentryTowerPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// Setup mouse input events
-		EnhancedInputComponent->BindAction(ShootClickAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnShootStarted);
-
-		// Setup touch input events
-		EnhancedInputComponent->BindAction(ShootTouchAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnShootStarted);
-
 		// Setup keyboard events
 		EnhancedInputComponent->BindAction(OpenMenuAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnOpenMenuStarted);
+		EnhancedInputComponent->BindAction(TriggerGpuCrashAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnTriggerGpuCrashStarted);
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("ASentryTowerPlayerController: Failed to find an Enhanced Input Component!"));
-	}
-}
-
-void ASentryTowerPlayerController::OnShootStarted()
-{
-	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shoot!"));
-
-	if (AllowShooting)
-	{
-		FHitResult CursorHit;
-		GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
-
-		OnShoot.Broadcast(Cast<ASentryTowerEnemyBase>(CursorHit.GetActor()), CursorHit.Location);
 	}
 }
 
@@ -68,20 +49,18 @@ void ASentryTowerPlayerController::OnOpenMenuStarted()
 	OnOpenMenu.Broadcast();
 }
 
-void ASentryTowerPlayerController::CursorTrace()
+void ASentryTowerPlayerController::OnTriggerGpuCrashStarted()
 {
-	auto TowerPawn = Cast<ASentryTowerPawn>(GetPawn());
-	if (!TowerPawn)
+	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Trigger GPU crash!"));
+
+	FHeavyComputeLoopDispatchParams Params(1, 1, 1);
+	Params.Input[0] = 111;
+	Params.Input[1] = 222;
+
+	FHeavyComputeLoopInterface::Dispatch(Params, [](int OutputVal)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ASentryTowerPlayerController: Can't get tower pawn!"));
-		return;
-	}
+		UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shader output - %d"), OutputVal);
+	});
 
-	FHitResult CursorHit;
-	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
-
-	// check if tower isn't aiming at itself
-	AllowShooting = !Cast<ASentryTowerPawn>(CursorHit.GetActor()) && !Cast<ASentryTowerTurret>(CursorHit.GetActor());
-
-	TowerPawn->RotateTurret(CursorHit.Location);
+	OnTriggerGpuCrash.Broadcast();
 }

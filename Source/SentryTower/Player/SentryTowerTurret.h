@@ -21,6 +21,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RotateTurret(const FVector& Target);
 
+	UFUNCTION(BlueprintPure)
+	bool IsFacingTarget(const FVector& Target, float Tolerance) const;
+
+	UFUNCTION()
+	void Shoot(AActor* TargetActor, const FVector& TargetLocation);
+
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UStaticMeshComponent> TurretBase;
 
@@ -36,12 +42,17 @@ public:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<ASentryTowerProjectile> ProjectileType;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float RotationSpeed = 15.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float AttackCooldown = 0.3f;
+
+	float LastShotTime = 0.0f;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	UFUNCTION()
-	void Shoot(AActor* TargetActor, const FVector& TargetLocation);
 
 public:
 	// Called every frame

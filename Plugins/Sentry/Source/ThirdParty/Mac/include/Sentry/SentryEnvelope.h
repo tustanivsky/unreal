@@ -16,13 +16,14 @@
 
 #endif
 
-@class SentryEvent;
-@class SentrySession;
-@class SentryId;
-@class SentryUserFeedback;
 @class SentryAttachment;
 @class SentryEnvelopeItemHeader;
+@class SentryEvent;
+@class SentryFeedback;
+@class SentryId;
+@class SentrySession;
 @class SentryTraceContext;
+@class SentryUserFeedback;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -90,7 +91,15 @@ SENTRY_NO_INIT
 
 - (instancetype)initWithEvent:(SentryEvent *)event;
 - (instancetype)initWithSession:(SentrySession *)session;
-- (instancetype)initWithUserFeedback:(SentryUserFeedback *)userFeedback;
+/**
+ * @deprecated Building the envelopes for the new @c SentryFeedback type is done directly in @c
+ * -[SentryClient @c captureFeedback:withScope:]
+ */
+- (instancetype)initWithUserFeedback:(SentryUserFeedback *)userFeedback
+    DEPRECATED_MSG_ATTRIBUTE(
+        "Building the envelopes for the new SentryFeedback type is done directly in -[SentryClient "
+        "captureFeedback:withScope:] so there will be no analog to this initializer for "
+        "SentryFeedback at this time..");
 - (_Nullable instancetype)initWithAttachment:(SentryAttachment *)attachment
                            maxAttachmentSize:(NSUInteger)maxAttachmentSize;
 - (instancetype)initWithHeader:(SentryEnvelopeItemHeader *)header
@@ -140,7 +149,13 @@ SENTRY_NO_INIT
  */
 - (instancetype)initWithEvent:(SentryEvent *)event;
 
-- (instancetype)initWithUserFeedback:(SentryUserFeedback *)userFeedback;
+/**
+ * @deprecated Building the envelopes for the new @c SentryFeedback type is done directly in @c
+ * -[SentryClient @c captureFeedback:withScope:]
+ */
+- (instancetype)initWithUserFeedback:(SentryUserFeedback *)userFeedback
+    DEPRECATED_MSG_ATTRIBUTE("Building the envelopes for the new SentryFeedback type is done "
+                             "directly in -[SentryClient captureFeedback:withScope:].");
 
 /**
  * The envelope header.
