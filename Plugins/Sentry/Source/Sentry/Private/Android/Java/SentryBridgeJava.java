@@ -12,12 +12,11 @@ import org.json.JSONObject;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import io.sentry.Breadcrumb;
 import io.sentry.Hint;
-import io.sentry.IHub;
+import io.sentry.IScopes;
 import io.sentry.SamplingContext;
 import io.sentry.IScope;
 import io.sentry.ScopeCallback;
@@ -25,19 +24,17 @@ import io.sentry.Sentry;
 import io.sentry.SentryEvent;
 import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
-import io.sentry.android.core.AnrIntegration;
 import io.sentry.android.core.SentryAndroid;
 import io.sentry.android.core.SentryAndroidOptions;
 import io.sentry.exception.ExceptionMechanismException;
 import io.sentry.protocol.Mechanism;
 import io.sentry.protocol.SentryException;
 import io.sentry.protocol.SentryId;
-import io.sentry.protocol.SentryStackFrame;
-import io.sentry.protocol.SentryStackTrace;
 
 public class SentryBridgeJava {
 	public static native void onConfigureScope(long callbackAddr, IScope scope);
 	public static native SentryEvent onBeforeSend(long handlerAddr, SentryEvent event, Hint hint);
+	public static native Breadcrumb onBeforeBreadcrumb(long handlerAddr, Breadcrumb breadcrumb, Hint hint);
 	public static native float onTracesSampler(long samplerAddr, SamplingContext samplingContext);
 
 	public static void init(Activity activity, final String settingsJsonStr, final long beforeSendHandler) {
@@ -60,7 +57,6 @@ public class SentryBridgeJava {
 					options.setBeforeSend(new SentryOptions.BeforeSendCallback() {
 						@Override
 						public SentryEvent execute(SentryEvent event, Hint hint) {
-							preProcessEvent(event);
 							return onBeforeSend(beforeSendHandler, event, hint);
 						}
 					});
@@ -73,7 +69,6 @@ public class SentryBridgeJava {
 						options.addInAppExclude(Excludes.getString(i));
 					}
 					options.setAnrEnabled(settingJson.getBoolean("enableAnrTracking"));
-					options.setEnableTracing(settingJson.getBoolean("enableTracing"));
 					if(settingJson.has("tracesSampleRate")) {
 						options.setTracesSampleRate(settingJson.getDouble("tracesSampleRate"));
 					}
@@ -91,29 +86,20 @@ public class SentryBridgeJava {
 							}
 						});
 					}
+					if(settingJson.has("beforeBreadcrumb")) {
+						final long beforeBreadcrumbAddr = settingJson.getLong("beforeBreadcrumb");
+						options.setBeforeBreadcrumb(new SentryOptions.BeforeBreadcrumbCallback() {
+							@Override
+							public Breadcrumb execute(Breadcrumb breadcrumb, Hint hint) {
+								return onBeforeBreadcrumb(beforeBreadcrumbAddr, breadcrumb, hint);
+							}
+						});
+					}
 				} catch (JSONException e) {
 					throw new RuntimeException(e);
 				}
 			}
 		});
-	}
-
-	private static void preProcessEvent(SentryEvent event) {
-		if (event.getTags().containsKey("sentry_unreal_exception")) {
-			SentryException exception = event.getUnhandledException();
-			if (exception != null) {
-				exception.setType(event.getTag("sentry_unreal_exception_type"));
-				exception.setValue(event.getTag("sentry_unreal_exception_message"));
-				SentryStackTrace trace = exception.getStacktrace();
-				int numFramesToSkip = Integer.parseInt(event.getTag("sentry_unreal_exception_skip_frames"));
-				List<SentryStackFrame> frames = trace.getFrames();
-				trace.setFrames(frames.subList(0, frames.size() - numFramesToSkip));
-			}
-			event.removeTag("sentry_unreal_exception_type");
-			event.removeTag("sentry_unreal_exception_message");
-			event.removeTag("sentry_unreal_exception_skip_frames");
-			event.removeTag("sentry_unreal_exception");
-		}
 	}
 
 	public static void addBreadcrumb(final String message, final String category, final String type, final HashMap<String, String> data, final SentryLevel level) {
@@ -133,8 +119,8 @@ public class SentryBridgeJava {
 		SentryId messageId = Sentry.captureMessage(message, new ScopeCallback() {
 			@Override
 			public void run(@NonNull IScope scope) {
-			scope.setLevel(level);
-			onConfigureScope(callback, scope);
+				scope.setLevel(level);
+				onConfigureScope(callback, scope);
 			}
 		});
 		return messageId;
@@ -206,8 +192,8 @@ public class SentryBridgeJava {
 	}
 
 	public static SentryOptions getOptions() {
-		IHub hub = Sentry.getCurrentHub();
-		return hub.getOptions();
+		IScopes scopes = Sentry.getCurrentScopes();
+		return scopes.getOptions();
 	}
 
 	public static int isCrashedLastRun() {
