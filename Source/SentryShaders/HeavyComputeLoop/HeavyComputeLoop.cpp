@@ -19,11 +19,9 @@ DECLARE_CYCLE_STAT(TEXT("HeavyComputeLoop Execute"), STAT_HeavyComputeLoop_Execu
 class SENTRYSHADERS_API FHeavyComputeLoop: public FGlobalShader
 {
 public:
-	
 	DECLARE_GLOBAL_SHADER(FHeavyComputeLoop);
 	SHADER_USE_PARAMETER_STRUCT(FHeavyComputeLoop, FGlobalShader);
-	
-	
+
 	class FHeavyComputeLoop_Perm_TEST : SHADER_PERMUTATION_INT("TEST", 1);
 	using FPermutationDomain = TShaderPermutationDomain<
 		FHeavyComputeLoop_Perm_TEST
@@ -52,7 +50,6 @@ public:
 
 		// SHADER_PARAMETER_STRUCT_REF(FMyCustomStruct, MyCustomStruct)
 
-		
 		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 
@@ -62,7 +59,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		const FPermutationDomain PermutationVector(Parameters.PermutationId);
-		
+
 		return true;
 	}
 
