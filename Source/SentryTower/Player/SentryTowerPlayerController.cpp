@@ -53,6 +53,8 @@ void ASentryTowerPlayerController::OnTriggerGpuCrashStarted()
 {
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Trigger GPU crash!"));
 
+#if PLATFORM_WINDOWS
+
 	FHeavyComputeLoopDispatchParams Params(1, 1, 1);
 	Params.Input[0] = 111;
 	Params.Input[1] = 222;
@@ -61,6 +63,8 @@ void ASentryTowerPlayerController::OnTriggerGpuCrashStarted()
 	{
 		UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shader output - %d"), OutputVal);
 	});
+
+#endif
 
 	OnTriggerGpuCrash.Broadcast();
 }
