@@ -11,7 +11,7 @@ public class SentryShaders: ModuleRules
 		
 		PrivateIncludePaths.AddRange(new string[] 
 		{
-			"SentryShaders/Private"
+			"SentryShaders"
 		});
 		if (Target.bBuildEditor == true)
 		{

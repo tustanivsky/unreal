@@ -1,6 +1,31 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SentryShaders/SentryShaders.h"
+#include "MeshPassProcessor.h"
+#include "RHICommandList.h"
+#include "RenderGraphBuilder.h"
+#include "RenderTargetPool.h"
+#include "MeshMaterialShader.h"
+#include "ShaderParameterUtils.h"
+#include "RHIStaticStates.h"
+#include "Shader.h"
+#include "RHI.h"
+#include "GlobalShader.h"
+#include "RenderGraphUtils.h"
+#include "ShaderParameterStruct.h"
+#include "UniformBuffer.h"
+#include "RHICommandList.h"
+#include "ShaderCompilerCore.h"
+#include "EngineDefines.h"
+#include "RendererInterface.h"
+#include "RenderResource.h"
+#include "RenderGraphResources.h"
+
+#include "RenderGraphResources.h"
+#include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
+
+#include "CoreMinimal.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -8,17 +33,18 @@
 
 #include "HeavyComputeLoop.generated.h"
 
+#define NUM_THREADS_HeavyComputeLoop_X 1
+#define NUM_THREADS_HeavyComputeLoop_Y 1
+#define NUM_THREADS_HeavyComputeLoop_Z 1
+
 struct SENTRYSHADERS_API FHeavyComputeLoopDispatchParams
 {
 	int X;
 	int Y;
 	int Z;
 
-	
 	int Input[2];
 	int Output;
-	
-	
 
 	FHeavyComputeLoopDispatchParams(int x, int y, int z)
 		: X(x)
@@ -65,10 +91,7 @@ public:
 	}
 };
 
-
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHeavyComputeLoopLibrary_AsyncExecutionCompleted, const int, Value);
-
 
 UCLASS() // Change the _API to match your project
 class SENTRYSHADERS_API UHeavyComputeLoopLibrary_AsyncExecution : public UBlueprintAsyncActionBase
@@ -76,7 +99,6 @@ class SENTRYSHADERS_API UHeavyComputeLoopLibrary_AsyncExecution : public UBluepr
 	GENERATED_BODY()
 
 public:
-	
 	// Execute the actual load
 	virtual void Activate() override {
 		// Create a dispatch parameters struct and fill it the input array with our args
@@ -89,9 +111,7 @@ public:
 			this->Completed.Broadcast(OutputVal);
 		});
 	}
-	
-	
-	
+
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
 	static UHeavyComputeLoopLibrary_AsyncExecution* ExecuteBaseComputeShader(UObject* WorldContextObject, int Arg1, int Arg2) {
 		UHeavyComputeLoopLibrary_AsyncExecution* Action = NewObject<UHeavyComputeLoopLibrary_AsyncExecution>();
@@ -105,8 +125,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnHeavyComputeLoopLibrary_AsyncExecutionCompleted Completed;
 
-	
 	int Arg1;
 	int Arg2;
-	
 };

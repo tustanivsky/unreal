@@ -1,5 +1,4 @@
 #include "HeavyComputeLoop.h"
-#include "SentryShaders/Public/HeavyComputeLoop/HeavyComputeLoop.h"
 #include "PixelShaderUtils.h"
 #include "MeshPassProcessor.inl"
 #include "StaticMeshResources.h"
@@ -56,7 +55,6 @@ public:
 		
 		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
-		
 
 	END_SHADER_PARAMETER_STRUCT()
 
@@ -107,21 +105,19 @@ void FHeavyComputeLoopInterface::DispatchRenderThread(FRHICommandListImmediate& 
 		DECLARE_GPU_STAT(HeavyComputeLoop)
 		RDG_EVENT_SCOPE(GraphBuilder, "HeavyComputeLoop");
 		RDG_GPU_STAT_SCOPE(GraphBuilder, HeavyComputeLoop);
-		
+
 		typename FHeavyComputeLoop::FPermutationDomain PermutationVector;
-		
+
 		// Add any static permutation options here
 		// PermutationVector.Set<FHeavyComputeLoop::FMyPermutationName>(12345);
 
 		TShaderMapRef<FHeavyComputeLoop> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
-		
 
 		bool bIsShaderValid = ComputeShader.IsValid();
 
 		if (bIsShaderValid) {
 			FHeavyComputeLoop::FParameters* PassParameters = GraphBuilder.AllocParameters<FHeavyComputeLoop::FParameters>();
 
-			
 			const void* RawData = (void*)Params.Input;
 			int NumInputs = 2;
 			int InputSize = sizeof(int);
@@ -134,7 +130,6 @@ void FHeavyComputeLoopInterface::DispatchRenderThread(FRHICommandListImmediate& 
 				TEXT("OutputBuffer"));
 
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
-			
 
 			auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
@@ -146,13 +141,11 @@ void FHeavyComputeLoopInterface::DispatchRenderThread(FRHICommandListImmediate& 
 				FComputeShaderUtils::Dispatch(RHICmdList, ComputeShader, *PassParameters, GroupCount);
 			});
 
-			
 			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteHeavyComputeLoopOutput"));
 			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, OutputBuffer, 0u);
 
 			auto RunnerFunc = [GPUBufferReadback, AsyncCallback](auto&& RunnerFunc) -> void {
 				if (GPUBufferReadback->IsReady()) {
-					
 					int32* Buffer = (int32*)GPUBufferReadback->Lock(1);
 					int OutVal = Buffer[0];
 					
@@ -173,14 +166,12 @@ void FHeavyComputeLoopInterface::DispatchRenderThread(FRHICommandListImmediate& 
 			AsyncTask(ENamedThreads::ActualRenderingThread, [RunnerFunc]() {
 				RunnerFunc(RunnerFunc);
 			});
-			
 		} else {
 			#if WITH_EDITOR
 				GEngine->AddOnScreenDebugMessage((uint64)42145125184, 6.f, FColor::Red, FString(TEXT("The compute shader has a problem.")));
 			#endif
 
 			// We exit here as we don't want to crash the game if the shader is not found or has an error.
-			
 		}
 	}
 
