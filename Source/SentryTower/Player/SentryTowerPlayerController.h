@@ -31,6 +31,7 @@ protected:
 
 	/** Input handlers. */
 	void OnOpenMenuStarted();
+	void OnTriggerGpuCrashStarted();
 
 public:
 
@@ -41,8 +42,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* OpenMenuAction;
 
+	/**Trigger GPU crash input action (touch) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* TriggerGpuCrashAction;
+
 	UPROPERTY(BlueprintAssignable)
 	FOnOpenMenuDelegate OnOpenMenu;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnOpenMenuDelegate OnTriggerGpuCrash;
 
 private:
 	bool AllowShooting;

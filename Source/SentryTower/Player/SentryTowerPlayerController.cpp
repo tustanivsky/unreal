@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "SentryTowerPawn.h"
 #include "SentryTowerTurret.h"
+#include "SentryShaders/HeavyComputeLoop/HeavyComputeLoop.h"
 #include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 
 void ASentryTowerPlayerController::BeginPlay()
@@ -33,6 +34,7 @@ void ASentryTowerPlayerController::SetupInputComponent()
 	{
 		// Setup keyboard events
 		EnhancedInputComponent->BindAction(OpenMenuAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnOpenMenuStarted);
+		EnhancedInputComponent->BindAction(TriggerGpuCrashAction, ETriggerEvent::Started, this, &ASentryTowerPlayerController::OnTriggerGpuCrashStarted);
 	}
 	else
 	{
@@ -45,4 +47,20 @@ void ASentryTowerPlayerController::OnOpenMenuStarted()
 	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Open menu!"));
 
 	OnOpenMenu.Broadcast();
+}
+
+void ASentryTowerPlayerController::OnTriggerGpuCrashStarted()
+{
+	UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Trigger GPU crash!"));
+
+	FHeavyComputeLoopDispatchParams Params(1, 1, 1);
+	Params.Input[0] = 111;
+	Params.Input[1] = 222;
+
+	FHeavyComputeLoopInterface::Dispatch(Params, [](int OutputVal)
+	{
+		UE_LOG(LogTemp, Log, TEXT("ASentryTowerPlayerController: Shader output - %d"), OutputVal);
+	});
+
+	OnTriggerGpuCrash.Broadcast();
 }
