@@ -7,7 +7,11 @@
 #include "InputActionValue.h"
 #include "SentryTowerPawn.h"
 #include "SentryTowerTurret.h"
+
+#if PLATFORM_WINDOWS
 #include "SentryShaders/HeavyComputeLoop/HeavyComputeLoop.h"
+#endif
+
 #include "SentryTower/Enemy/SentryTowerEnemyBase.h"
 
 void ASentryTowerPlayerController::BeginPlay()
