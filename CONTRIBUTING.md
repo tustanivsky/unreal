@@ -2,6 +2,10 @@
 
 To demonstrate the Unreal SDK capabilities the game can trigger different types of crashes based on user input. This allows the plugin to capture the corresponding reports and upload them to Sentry.
 
+## Required configuration 
+
+In `Project Settings > Plugins > Sentry` set `DSN` and configure [Debug Symbols Uploading](https://docs.sentry.io/platforms/unreal/configuration/debug-symbols/)
+
 ## In-game crashes
 
 ### Null pointer dereference
