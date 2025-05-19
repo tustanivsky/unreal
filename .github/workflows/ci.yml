@@ -1,0 +1,54 @@
+name: run-demo
+
+on:
+  schedule:
+     - cron: '0 */3 * * *' # every three hours
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  UE_VERSION: 5.5
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+
+    steps:
+      - name: Log in to GitHub package registry
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Docker container
+        run: |
+          docker run -td `
+            --name unreal `
+            --volume "${{ github.workspace }}:C:\workspace" `
+            --workdir C:\workspace `
+            ghcr.io/getsentry/unreal-docker:${{ env.UE_VERSION }}
+
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+          submodules: recursive
+
+      - name: Build game
+        run: |
+          docker exec unreal C:\UnrealEngine\Engine\Build\BatchFiles\RunUAT.bat BuildCookRun `
+            -project=C:\workspace\checkout\SentryTower.uproject `
+            -archivedirectory=C:\workspace\checkout\Builds `
+            -platform=Win64 `
+            -nop4 `
+            -cook `
+            -build `
+            -stage `
+            -prereqss `
+            -package `
+            -archive
+
+      - name: Run simulation
+        run: |
+          docker exec unreal C:\workspace\checkout\Builds\Windows\SentryTower.exe -Unattended -NullRHI --idle
