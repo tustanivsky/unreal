@@ -13,7 +13,9 @@
 			"Name": "SentryShaders",
 			"Type": "Runtime",
 			"LoadingPhase": "PostConfigInit",
-			"PlatformAllowList": [ "Win64" ]
+			"PlatformAllowList": [
+				"Win64"
+			]
 		}
 	],
 	"Plugins": [
@@ -32,6 +34,10 @@
 				"Mac",
 				"Linux"
 			]
+		},
+		{
+			"Name": "WmfMedia",
+			"Enabled": false
 		}
 	]
 }
