@@ -6,7 +6,7 @@ To demonstrate the Unreal SDK capabilities the game can trigger different types 
 
 In `Project Settings > Plugins > Sentry` set `DSN` and configure [Debug Symbols Uploading](https://docs.sentry.io/platforms/unreal/configuration/debug-symbols/)
 
-## In-game crashes
+## In-game crashes/errors
 
 ### Null pointer dereference
 
@@ -53,6 +53,10 @@ void HeavyComputeLoop(uint3 DispatchThreadId : SV_DispatchThreadID, uint GroupIn
 ```
 
 In order to be able to capture GPU crashes game has to be built with Unreal Engine version that addops this [change](https://github.com/EpicGames/UnrealEngine/pull/12648).
+
+### HTTP request error
+
+Open the in-game shop (button with a cart icon in the upper-right corner of the screen) to purchase the tower upgrade. After clicking the `Upgrade Tower` button the game will send an HTTP request to a dummy server which is expected to return an error. Also, this will trigger the `ensure` check in the corresponding request handler to fail (see `USentryTowerGameInstance::BuyUpgrade` for more details).
 
 ## Breadcrumbs
 
