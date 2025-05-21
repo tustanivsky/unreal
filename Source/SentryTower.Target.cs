@@ -11,5 +11,8 @@ public class SentryTowerTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.V4;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_3;
 		ExtraModuleNames.Add("SentryTower");
+
+		MacPlatform.bUseDSYMFiles = true;
+		IOSPlatform.bGeneratedSYM = true;
 	}
 }
