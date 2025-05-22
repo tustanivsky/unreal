@@ -51,4 +51,4 @@ jobs:
 
       - name: Run simulation
         run: |
-          docker exec unreal C:\workspace\checkout\Builds\Windows\SentryTower.exe -Unattended -RenderOffScreen --idle
+          docker exec unreal C:\workspace\checkout\Builds\Windows\SentryTower.exe -Unattended -nullrhi --idle
