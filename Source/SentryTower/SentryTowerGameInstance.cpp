@@ -11,6 +11,15 @@
 void USentryTowerGameInstance::Init()
 {
 	Super::Init();
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("NullRHI")))
+	{
+		// For CI simulation (no RHI available) copy pre-made screenshot to dest where Unreal SDK can pick it up during crash handling
+		const FString FakeScreenshotPath = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Resources"), TEXT("screenshot.png"));
+		const FString ScreenshotExpectedPath = FPaths::Combine(FPaths::ProjectUserDir(), TEXT("screenshots"), TEXT("screenshot.png"));
+
+		IFileManager::Get().Copy(*ScreenshotExpectedPath, *FakeScreenshotPath);
+	}
 }
 
 void USentryTowerGameInstance::BuyUpgrade(const FOnBuyComplete& OnBuyComplete)
